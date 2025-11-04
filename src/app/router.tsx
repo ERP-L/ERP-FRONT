@@ -14,6 +14,12 @@ import ProductCreatePage from "../ui/pages/ProductCreatePage";
 import InventarioCreatePage from "../ui/pages/InventarioCreatePage";
 import CategoryCreatePage from "../ui/pages/CategoryCreatePage";
 import ProfilePage from "../ui/pages/ProfilePage";
+import InventoryProductsPage from "../ui/pages/InventoryProductsPage";
+import InventoryAssetsPage from "../ui/pages/InventoryAssetsPage";
+import PurchaseOrdersProductsPage from "../ui/pages/PurchaseOrdersProductsPage";
+import PurchaseOrdersAssetsPage from "../ui/pages/PurchaseOrdersAssetsPage";
+import AdditionalExpensesPage from "../ui/pages/AdditionalExpensesPage";
+import ExpenseSummaryPage from "../ui/pages/ExpenseSummaryPage";
 
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -45,6 +51,12 @@ element: <RequireAuth><PortalLayout /></RequireAuth>,
       { path: "/app/products", element: <ProductCreatePage /> },
       { path: "/app/categories", element: <CategoryCreatePage /> },
       { path: "/app/inventory", element: <InventarioCreatePage /> },
+      { path: "/app/inventory-products", element: <InventoryProductsPage /> },
+      { path: "/app/inventory-assets", element: <InventoryAssetsPage /> },
+      { path: "/app/purchase-orders-products", element: <PurchaseOrdersProductsPage /> },
+      { path: "/app/purchase-orders-assets", element: <PurchaseOrdersAssetsPage /> },
+      { path: "/app/additional-expenses", element: <AdditionalExpensesPage /> },
+      { path: "/app/expense-summary", element: <ExpenseSummaryPage /> },
       { path: "/app/profile", element: <ProfilePage /> },
     ]
 }

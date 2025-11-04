@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store";
-import { Home, Building2, Boxes, Package, Tags } from "lucide-react";
+import { Home, Building2, Boxes, Package, Tags, ChevronDown, ChevronRight, Menu, X } from "lucide-react";
 
 function SidebarLink({
   to,
@@ -30,13 +30,40 @@ function SidebarLink({
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SidebarGroup({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
   return (
-    <div className="px-4 pt-4 text-[10px] font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]/70">
-      {children}
+    <div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-3 px-4 py-3 rounded-[var(--radius)] text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] transition-all duration-200 w-full"
+      >
+        {icon ? <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span> : null}
+        <span className="truncate flex-1 text-left">{title}</span>
+        <span className="[&_svg]:h-4 [&_svg]:w-4">
+          {isOpen ? <ChevronDown /> : <ChevronRight />}
+        </span>
+      </button>
+      {isOpen && (
+        <div className="ml-4 mt-1 space-y-1">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
+
 
 function ProfileMenu({ onLogout }: { onLogout: () => void }) {
   const [open, setOpen] = useState(false);
@@ -84,64 +111,112 @@ function ProfileMenu({ onLogout }: { onLogout: () => void }) {
 export default function PortalLayout() {
   const nav = useNavigate();
   const { session, setSession } = useAppStore();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   const handleLogout = () => {
     setSession(null);
     nav("/login");
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto max-w-screen-2xl px-6 py-8 grid grid-cols-12 gap-8">
-        {/* Sidebar */}
-        <aside className="col-span-12 md:col-span-3 lg:col-span-2">
-          <div className="glass p-6 min-h-[90vh] flex flex-col gap-6">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-[hsl(var(--primary))] text-white flex items-center justify-center text-xl font-bold">
-                A
-              </div>
-              <div className="text-lg font-semibold text-[hsl(var(--foreground))]">ERP</div>
+    <div className="h-screen flex overflow-hidden">
+      {/* Sidebar */}
+      <aside className={`glass transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'} flex-shrink-0 m-4`}>
+        <div className={`p-4 flex flex-col transition-all duration-300 ${sidebarCollapsed ? 'gap-2 h-full' : 'gap-4 h-full'}`}>
+            {/* Logo y botón colapsar */}
+            <div className={`flex items-center transition-all duration-300 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+              {sidebarCollapsed ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-10 w-10 rounded-full bg-[hsl(var(--primary))] text-white flex items-center justify-center text-lg font-bold transition-all duration-300">
+                    A
+                  </div>
+                  <button
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="p-1 rounded-[var(--radius)] hover:bg-[hsl(var(--accent))] transition-all duration-200 hover:scale-110"
+                    title="Expandir menú"
+                  >
+                    <Menu className="h-4 w-4 transition-all duration-200" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-[hsl(var(--primary))] text-white flex items-center justify-center text-xl font-bold transition-all duration-300">
+                      A
+                    </div>
+                    <div className="text-lg font-semibold text-[hsl(var(--foreground))] transition-all duration-300">ERP</div>
+                  </div>
+                  <button
+                    onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                    className="p-2 rounded-[var(--radius)] hover:bg-[hsl(var(--accent))] transition-all duration-200 hover:scale-110"
+                    title="Colapsar menú"
+                  >
+                    <X className="h-5 w-5 transition-all duration-200" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Menú */}
-            <nav className="space-y-2 flex-1 overflow-y-auto">
-              <SidebarLink to="/app/home" icon={<Home />}>Inicio</SidebarLink>
+            {!sidebarCollapsed && (
+              <nav className="space-y-1 flex-1 overflow-y-auto transition-all duration-300">
+                <SidebarLink to="/app/home" icon={<Home />}>
+                  Inicio
+                </SidebarLink>
 
-              <SectionTitle>Activos</SectionTitle>
-              <div className="space-y-2">
-                <SidebarLink to="/app/branches" icon={<Building2 />}>Sucursales</SidebarLink>
-                <SidebarLink to="/app/warehouses" icon={<Boxes />}>Almacenes</SidebarLink>
-              </div>
+                <SidebarGroup title="Activos" icon={<Building2 />}>
+                  <SidebarLink to="/app/branches" icon={<Building2 />}>Sucursales</SidebarLink>
+                  <SidebarLink to="/app/warehouses" icon={<Boxes />}>Almacenes</SidebarLink>
+                </SidebarGroup>
 
-              <SectionTitle>Inventario</SectionTitle>
-              <div className="space-y-2">
-                <SidebarLink to="/app/products" icon={<Package />}>Productos</SidebarLink>
-                <SidebarLink to="/app/categories" icon={<Tags />}>Categorías</SidebarLink>
-              </div>
-            </nav>
+                <SidebarGroup title="Inventario" icon={<Package />}>
+                  <SidebarLink to="/app/products" icon={<Package />}>Catálogo de Productos</SidebarLink>
+                  <SidebarLink to="/app/categories" icon={<Tags />}>Catálogo de Categorías</SidebarLink>
+                  <SidebarLink to="/app/inventory-products" icon={<Package />}>Inventario de Productos</SidebarLink>
+                  <SidebarLink to="/app/inventory-assets" icon={<Building2 />}>Inventario de Activos</SidebarLink>
+                </SidebarGroup>
+
+                <SidebarGroup title="Centro de Costos" icon={<Tags />}>
+                  <SidebarLink to="/app/purchase-orders-products" icon={<Package />}>Orden de Compra Productos</SidebarLink>
+                  <SidebarLink to="/app/purchase-orders-assets" icon={<Building2 />}>Orden de Compra Activos</SidebarLink>
+                  <SidebarLink to="/app/additional-expenses" icon={<Tags />}>Gastos Adicionales</SidebarLink>
+                  <SidebarLink to="/app/expense-summary" icon={<Tags />}>Resumen de Gastos</SidebarLink>
+                </SidebarGroup>
+              </nav>
+            )}
 
             {/* Perfil */}
-            <div className="mt-auto border-t border-[hsl(var(--border))] pt-4 flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-9 w-9 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-sm font-semibold">
-                  {session?.email?.[0]?.toUpperCase() || "D"}
+            <div className={`mt-auto border-t border-[hsl(var(--border))] transition-all duration-300 ${sidebarCollapsed ? 'pt-2' : 'pt-3'}`}>
+              {sidebarCollapsed ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-xs font-semibold transition-all duration-300">
+                    {session?.email?.[0]?.toUpperCase() || "D"}
+                  </div>
+                  <ProfileMenu onLogout={handleLogout} />
                 </div>
-                <div className="truncate text-sm text-[hsl(var(--muted-foreground))]">
-                  {session?.email ?? "demo"}
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-sm font-semibold transition-all duration-300">
+                      {session?.email?.[0]?.toUpperCase() || "D"}
+                    </div>
+                    <div className="truncate text-sm text-[hsl(var(--muted-foreground))] transition-all duration-300">
+                      {session?.email ?? "demo"}
+                    </div>
+                  </div>
+                  <ProfileMenu onLogout={handleLogout} />
                 </div>
-              </div>
-              <ProfileMenu onLogout={handleLogout} />
+              )}
             </div>
           </div>
         </aside>
 
         {/* Content */}
-        <section className="col-span-12 md:col-span-9 lg:col-span-10">
-          <div className="card card-inner min-h-[90vh]">
+        <main className="flex-1 m-4">
+          <div className="card card-inner h-full overflow-y-auto">
             <Outlet />
           </div>
-        </section>
-      </div>
+        </main>
     </div>
   );
 }
