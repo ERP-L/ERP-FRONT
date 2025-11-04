@@ -4,6 +4,25 @@ import type { BranchListItem, WarehouseListItem } from "../../core/api-types";
 
 type WarehouseRow = WarehouseListItem;
 
+// Datos hardcodeados de estanterías por almacén
+const SHELVES_DATA: Record<string, Array<{id: string, codeName: string}>> = {
+  "ALM001": [
+    { id: "1", codeName: "EST-A1" },
+    { id: "2", codeName: "EST-A2" },
+    { id: "3", codeName: "EST-A3" }
+  ],
+  "ALM002": [
+    { id: "4", codeName: "EST-B1" },
+    { id: "5", codeName: "EST-B2" }
+  ],
+  "ALM003": [
+    { id: "6", codeName: "EST-C1" },
+    { id: "7", codeName: "EST-C2" },
+    { id: "8", codeName: "EST-C3" },
+    { id: "9", codeName: "EST-C4" }
+  ]
+};
+
 export default function WarehousePage() {
 
   const [branches, setBranches] = useState<BranchListItem[]>([]);
@@ -12,7 +31,7 @@ export default function WarehousePage() {
   const [list, setList] = useState<WarehouseRow[]>([]);
   const [q, setQ] = useState("");
 
-  // Modal
+  // Modal crear almacén
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{
     branchId: string;
@@ -29,6 +48,11 @@ export default function WarehousePage() {
     phone: "",
     email: "",
   });
+
+  // Modal ver almacén
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseRow | null>(null);
+  const [shelves, setShelves] = useState<Array<{id: string, codeName: string}>>([]);
 
   // editar vs crear
   const [editing, setEditing] = useState(false);
@@ -135,6 +159,29 @@ export default function WarehousePage() {
     setOpen(true);
   }
 
+  function openWarehouseView(warehouse: WarehouseRow) {
+    setSelectedWarehouse(warehouse);
+    setShelves(SHELVES_DATA[warehouse.warehouseCode] || []);
+    setViewModalOpen(true);
+  }
+
+  function addShelf(codeName: string) {
+    if (!codeName.trim()) return;
+    const newId = String(Date.now());
+    const newShelf = { id: newId, codeName: codeName.trim() };
+    setShelves(prev => [...prev, newShelf]);
+  }
+
+  function removeShelf(id: string) {
+    setShelves(prev => prev.filter(shelf => shelf.id !== id));
+  }
+
+  function updateShelf(id: string, field: 'id' | 'codeName', value: string) {
+    setShelves(prev => prev.map(shelf => 
+      shelf.id === id ? { ...shelf, [field]: value } : shelf
+    ));
+  }
+
   // function startEdit(w: WarehouseRow) {
   //   setForm({
   //     branchId: String(w.branchId),
@@ -197,53 +244,57 @@ export default function WarehousePage() {
         </button>
       </div>
 
-      {/* Tabla */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[hsl(var(--accent))]">
-              <tr className="text-left">
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Código</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Nombre</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Teléfono</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Dirección</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Correo</th>
-                {/* <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium w-40">Acciones</th> */}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td className="px-6 py-8 text-center text-[hsl(var(--muted-foreground))]" colSpan={5}>
-                    Sin datos
-                  </td>
-                </tr>
-              )}
-              {filtered.map((w) => (
-                <tr key={`${w.branchId}:${w.warehouseCode}`} className="hover:bg-[hsl(var(--accent))]/50 transition-colors">
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">{w.warehouseCode}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">{w.warehouseName}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{w.phone}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{w.address}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{w.contact}</td>
-                  {/* <td className="px-6 py-4 border-b border-[hsl(var(--border))]">
-                    <div className="flex items-center gap-2">
-                      <button className="btn text-xs px-3 py-1" onClick={() => startEdit(w)}>
-                        Editar
-                      </button>
-                      <button
-                        className="btn text-xs px-3 py-1 text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => remove(w.warehouseCode)}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td> */}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Cards de Almacenes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 text-[hsl(var(--muted-foreground))]">
+            Sin datos
+          </div>
+        )}
+        {filtered.map((w) => {
+          const shelvesCount = SHELVES_DATA[w.warehouseCode]?.length || 0;
+          return (
+            <div 
+              key={`${w.branchId}:${w.warehouseCode}`} 
+              className="card cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]"
+              onClick={() => openWarehouseView(w)}
+            >
+              <div className="card-inner">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-[hsl(var(--foreground))]">{w.warehouseName}</h3>
+                    <p className="text-sm text-[hsl(var(--muted-foreground))]">{w.warehouseCode}</p>
+                  </div>
+                  <div className="bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-3 py-1 rounded-full text-sm font-medium">
+                    {shelvesCount} estanterías
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    <span className="text-[hsl(var(--foreground))]">{w.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-[hsl(var(--foreground))]">{w.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-[hsl(var(--foreground))]">{w.contact}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Modal Nuevo almacén */}
@@ -334,6 +385,134 @@ export default function WarehousePage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ver Almacén */}
+      {viewModalOpen && selectedWarehouse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm">
+          <div className="card w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+            <div className="card-inner">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-[hsl(var(--foreground))]">
+                  {selectedWarehouse.warehouseName}
+                </h2>
+                <button 
+                  className="btn" 
+                  onClick={() => setViewModalOpen(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              {/* Información del Almacén */}
+              <div className="bg-gray-50 border border-gray-200 p-6 rounded-[var(--radius)] mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Código</label>
+                    <p className="text-gray-900">{selectedWarehouse.warehouseCode}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Teléfono</label>
+                    <p className="text-gray-900">{selectedWarehouse.phone}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600">Dirección</label>
+                    <p className="text-gray-900">{selectedWarehouse.address}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600">Correo de contacto</label>
+                    <p className="text-gray-900">{selectedWarehouse.contact}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gestión de Estanterías */}
+              <div>
+                <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] mb-4">Estanterías</h3>
+                
+                {/* Input para agregar estantería */}
+                <div className="flex gap-2 mb-4 items-center">
+                  <input
+                    className="input flex-1"
+                    placeholder="Escribe el nombre de la estantería"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        addShelf(e.currentTarget.value);
+                        e.currentTarget.value = '';
+                      }
+                    }}
+                  />
+                  <button 
+                    className="btn-primary h-fit"
+                    onClick={() => {
+                      const input = document.querySelector('input[placeholder="Escribe el nombre de la estantería"]') as HTMLInputElement;
+                      if (input) {
+                        addShelf(input.value);
+                        input.value = '';
+                      }
+                    }}
+                  >
+                    Crear
+                  </button>
+                </div>
+
+                {/* Lista de estanterías */}
+                <div className="max-h-80 overflow-y-auto">
+                  {shelves.length === 0 ? (
+                    <div className="text-center py-8 text-[hsl(var(--muted-foreground))] bg-gray-50 rounded-[var(--radius)] border border-gray-200">
+                      No hay estanterías registradas
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-[var(--radius)] overflow-hidden">
+                      {shelves.map((shelf, index) => (
+                        <div 
+                          key={shelf.id} 
+                          className={`flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors ${
+                            index !== shelves.length - 1 ? 'border-b border-gray-100' : ''
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <input
+                              className="w-full text-sm py-1 bg-transparent border-none focus:bg-white focus:border focus:border-gray-300 focus:rounded px-2 transition-all"
+                              value={shelf.codeName}
+                              onChange={(e) => updateShelf(shelf.id, 'codeName', e.target.value)}
+                              placeholder="Nombre de estantería"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              onClick={() => {
+                                const newName = prompt('Nuevo nombre:', shelf.codeName);
+                                if (newName && newName.trim()) {
+                                  updateShelf(shelf.id, 'codeName', newName.trim());
+                                }
+                              }}
+                              title="Modificar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              onClick={() => removeShelf(shelf.id)}
+                              title="Eliminar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

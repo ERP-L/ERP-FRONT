@@ -166,3 +166,38 @@
   .link        { @apply text-primary hover:underline transition-colors; }
   .section     { @apply bg-background/60 backdrop-blur-lg border border-white/30 shadow-2xl rounded-[var(--radius)]; }
 }
+
+/* =========================
+   Custom Scrollbars
+   ========================= */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(234, 58%, 90%) hsl(var(--muted));
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 10px;
+  margin: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, hsl(250, 55%, 76%) 0%, hsl(250, 55%, 66%) 100%);
+  border-radius: 10px;
+  border: 2px solid hsl(var(--muted));
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg,  hsl(250, 55%, 76%) 0%, hsl(250, 55%, 66%) 100%);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, hsl(250, 55%, 76%) 0%, hsl(250, 55%, 66%) 100%);
+}

@@ -187,7 +187,7 @@ export default function ProductCreatePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Productos</h1>
+      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Catálogo de Productos</h1>
 
       {/* Buscador + botón nuevo */}
       <div className="flex items-center gap-4">
