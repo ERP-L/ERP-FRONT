@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ApiService } from "../../core/api-service";
 import type { CategoryHierarchyItem, CategoryListItem } from "../../core/api-types";
 
@@ -20,6 +20,11 @@ export default function CategoryCreatePage() {
   // Drag & Drop
   const [draggedItem, setDraggedItem] = useState<CategoryHierarchyItem | null>(null);
   const [dragOverItem, setDragOverItem] = useState<number | null>(null);
+  
+  // Touch drag support
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [touchDragging, setTouchDragging] = useState(false);
+  const touchDraggedCategoryRef = useRef<CategoryHierarchyItem | null>(null);
   
   // Expand/Collapse
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
@@ -156,6 +161,108 @@ export default function CategoryCreatePage() {
     setDragOverItem(null);
   };
 
+  // Touch handlers para móvil
+  const handleTouchStart = (e: React.TouchEvent, category: CategoryHierarchyItem) => {
+    // Evitar que el botón de expand/collapse interfiera
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.tagName === 'BUTTON') {
+      return;
+    }
+    
+    const touch = e.touches[0];
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    touchDraggedCategoryRef.current = category;
+    setTouchDragging(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos || !touchDraggedCategoryRef.current) return;
+    
+    const touch = e.touches[0];
+    if (!touch) return;
+    
+    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+    
+    // Si el movimiento es significativo, es un drag
+    if (deltaX > 10 || deltaY > 10) {
+      // Si ya estamos arrastrando, prevenir scroll
+      if (touchDragging) {
+        e.preventDefault();
+        // Verificar si estamos sobre otra categoría
+        const element = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (element) {
+          const categoryElement = element.closest('[data-category-id]');
+          if (categoryElement) {
+            const targetId = parseInt(categoryElement.getAttribute('data-category-id') || '0');
+            if (targetId && targetId !== touchDraggedCategoryRef.current.categoryId) {
+              setDragOverItem(targetId);
+            } else {
+              setDragOverItem(null);
+            }
+          } else {
+            // Verificar si es el área de drop raíz
+            const rootDropArea = element.closest('[data-root-drop]');
+            if (rootDropArea) {
+              setDragOverItem(null);
+            } else {
+              setDragOverItem(null);
+            }
+          }
+        }
+      } else {
+        // Activar el drag si el movimiento es suficiente
+        // Prevenir scroll si el movimiento es más horizontal que vertical
+        if (deltaX > deltaY || deltaX > 15) {
+          e.preventDefault();
+          setTouchDragging(true);
+          setDraggedItem(touchDraggedCategoryRef.current);
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = async (e: React.TouchEvent) => {
+    if (!touchDragging || !touchDraggedCategoryRef.current) {
+      setTouchStartPos(null);
+      touchDraggedCategoryRef.current = null;
+      setTouchDragging(false);
+      return;
+    }
+
+    const touch = e.changedTouches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    if (element) {
+      const categoryElement = element.closest('[data-category-id]');
+      if (categoryElement) {
+        const targetId = parseInt(categoryElement.getAttribute('data-category-id') || '0');
+        if (targetId && targetId !== touchDraggedCategoryRef.current.categoryId) {
+          // Crear un evento drag simulado para usar handleDrop
+          const fakeEvent = {
+            preventDefault: () => {},
+          } as React.DragEvent;
+          await handleDrop(fakeEvent, targetId);
+        }
+      } else {
+        // Verificar si es el área de drop raíz
+        const rootDropArea = element.closest('[data-root-drop]');
+        if (rootDropArea && touchDraggedCategoryRef.current) {
+          const fakeEvent = {
+            preventDefault: () => {},
+          } as React.DragEvent;
+          await handleDropOnRoot(fakeEvent);
+        }
+      }
+    }
+
+    setTouchStartPos(null);
+    touchDraggedCategoryRef.current = null;
+    setTouchDragging(false);
+    setDraggedItem(null);
+    setDragOverItem(null);
+  };
+
   const handleDrop = async (e: React.DragEvent, targetCategoryId: number) => {
     e.preventDefault();
     setDragOverItem(null);
@@ -233,19 +340,49 @@ export default function CategoryCreatePage() {
     const hasChildren = category.children && category.children.length > 0;
     const expanded = isExpanded(category.categoryId);
     
+    // Calcular margin-left dinámicamente usando estilos inline
+    const getMarginLeft = () => {
+      if (level === 0) return '0';
+      const marginValue = Math.min(level * 0.5, 4); // rem units (0.5rem por nivel, máximo 4rem)
+      return `${marginValue}rem`;
+    };
+    
     return (
       <div key={category.categoryId} className="relative">
         <div
-          draggable
-          onDragStart={(e) => handleDragStart(e, category)}
-          onDragOver={(e) => handleDragOver(e, category.categoryId)}
+          draggable={!touchDragging}
+          data-category-id={category.categoryId}
+          onDragStart={(e) => {
+            if (!touchDragging) {
+              handleDragStart(e, category);
+            }
+          }}
+          onDragOver={(e) => {
+            if (!touchDragging) {
+              handleDragOver(e, category.categoryId);
+            }
+          }}
           onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, category.categoryId)}
+          onDrop={(e) => {
+            if (!touchDragging) {
+              handleDrop(e, category.categoryId);
+            }
+          }}
+          onTouchStart={(e) => handleTouchStart(e, category)}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={() => {
+            setTouchStartPos(null);
+            touchDraggedCategoryRef.current = null;
+            setTouchDragging(false);
+            setDraggedItem(null);
+            setDragOverItem(null);
+          }}
+          style={{ marginLeft: getMarginLeft(), touchAction: touchDragging ? 'none' : 'pan-y' }}
           className={`
-            group relative p-4 m-2 rounded-xl border-2 border-dashed transition-all duration-300 cursor-move
-            ${isDragged ? 'opacity-50 bg-blue-50 border-blue-400 shadow-lg' : ''}
+            group relative p-3 sm:p-4 m-1 sm:m-2 rounded-xl border-2 border-dashed transition-all duration-300 cursor-move select-none
+            ${isDragged || (touchDragging && draggedItem?.categoryId === category.categoryId) ? 'opacity-50 bg-blue-50 border-blue-400 shadow-lg z-50' : ''}
             ${isDragOver ? 'bg-green-50 border-green-400 scale-105 shadow-lg' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'}
-            ${level > 0 ? `ml-${level * 6}` : ''}
           `}
         >
           <div className="flex items-center justify-between">
@@ -253,8 +390,13 @@ export default function CategoryCreatePage() {
               {/* Botón de expand/collapse */}
               {hasChildren && (
                 <button
-                  onClick={() => toggleExpanded(category.categoryId)}
-                  className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleExpanded(category.categoryId);
+                  }}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors touch-none"
+                  type="button"
                 >
                   <svg 
                     className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}
@@ -274,21 +416,21 @@ export default function CategoryCreatePage() {
               </div>
               
               {/* Información de la categoría */}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg">{category.categoryName}</h3>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-[hsl(var(--foreground))] text-base sm:text-lg break-words">{category.categoryName}</h3>
                   {category.parentCategoryId && (
-                    <span className="text-xs text-[hsl(var(--muted-foreground))] bg-gray-100 px-2 py-1 rounded-full">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
                       Hijo de: {findCategoryNameById(category.parentCategoryId, hierarchy)}
                     </span>
                   )}
                   {hasChildren && (
-                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                    <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full whitespace-nowrap">
                       {category.children.length} hijo{category.children.length !== 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">{category.description}</p>
+                <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1 break-words">{category.description}</p>
               </div>
             </div>
             
@@ -311,9 +453,18 @@ export default function CategoryCreatePage() {
           
           {/* Área de drop para hacer esta categoría padre */}
           <div 
+            data-category-id={category.categoryId}
             className="mt-3 p-3 text-xs text-center text-[hsl(var(--muted-foreground))] border-t border-gray-100 bg-gray-50 rounded-lg"
-            onDragOver={(e) => handleDragOver(e, category.categoryId)}
-            onDrop={(e) => handleDrop(e, category.categoryId)}
+            onDragOver={(e) => {
+              if (!touchDragging) {
+                handleDragOver(e, category.categoryId);
+              }
+            }}
+            onDrop={(e) => {
+              if (!touchDragging) {
+                handleDrop(e, category.categoryId);
+              }
+            }}
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,7 +477,7 @@ export default function CategoryCreatePage() {
         
         {/* Renderizar hijos solo si está expandido */}
         {hasChildren && expanded && (
-          <div className="ml-6 mt-2 space-y-2">
+          <div className="mt-2 space-y-2">
             {category.children.map(child => renderCategoryItem(child, level + 1))}
           </div>
         )}
@@ -337,18 +488,18 @@ export default function CategoryCreatePage() {
   return (
     <div className="space-y-6">
       {/* Título */}
-      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Categorías</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Categorías</h1>
 
       {/* Buscador + botón crear */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar categoría…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <button 
-          className="btn-primary" 
+          className="btn-primary w-full sm:w-auto whitespace-nowrap" 
           onClick={() => { setForm({ categoryName: "", description: "", parentCategoryId: null }); setOpen(true); }}
         >
           Nueva categoría
@@ -357,12 +508,19 @@ export default function CategoryCreatePage() {
 
       {/* Área de drop para categorías raíz */}
       <div 
+        data-root-drop
         className="p-4 border-2 border-dashed border-gray-300 rounded-lg text-center bg-gray-50"
         onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
+          if (!touchDragging) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }
         }}
-        onDrop={handleDropOnRoot}
+        onDrop={(e) => {
+          if (!touchDragging) {
+            handleDropOnRoot(e);
+          }
+        }}
       >
         <p className="text-[hsl(var(--muted-foreground))]">
           Arrastra categorías aquí para convertirlas en categorías raíz (sin padre)
@@ -386,7 +544,7 @@ export default function CategoryCreatePage() {
             <h3 className="font-semibold text-[hsl(var(--foreground))]">Resultados de búsqueda</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[600px]">
               <thead className="bg-[hsl(var(--accent))]">
                 <tr className="text-left">
                   <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Nombre</th>
@@ -444,8 +602,8 @@ export default function CategoryCreatePage() {
 
       {/* Modal Nueva categoría */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 rounded-3xl backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-inner">
               <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-6">Nueva categoría</h2>
               <form className="space-y-4" onSubmit={submitNew}>

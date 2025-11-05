@@ -6,22 +6,22 @@ export default function InventoryAssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Activos</h1>
-        <button className="btn-primary">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Activos</h1>
+        <button className="btn-primary w-full sm:w-auto whitespace-nowrap">
           Nuevo Registro
         </button>
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar activos en inventario..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <button className="btn">
+        <button className="btn w-full sm:w-auto whitespace-nowrap">
           Filtrar
         </button>
       </div>

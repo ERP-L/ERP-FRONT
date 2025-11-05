@@ -106,86 +106,62 @@ export default function BranchCreatePage() {
   return (
     <div className="space-y-6">
       {/* Título */}
-      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Sucursales</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Sucursales</h1>
 
       {/* Buscador + botón crear */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar sucursal…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <button 
-          className="btn-primary" 
+          className="btn-primary w-full sm:w-auto whitespace-nowrap" 
           onClick={() => { setForm({ name: "", address: "", ubigeo: "" }); setOpen(true); }}
         >
           Nueva sucursal
         </button>
       </div>
 
-      {/* Tabla */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[hsl(var(--accent))]">
-              <tr className="text-left">
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Sucursal ID</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Nombre</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Dirección</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Ubigeo</th>
-                {/* <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium w-40">Acciones</th> */}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td className="px-6 py-8 text-center text-[hsl(var(--muted-foreground))]" colSpan={4}>
-                    Sin datos
-                  </td>
-                </tr>
-              )}
-              {filtered.map((b) => (
-                <tr key={String(b.branchId)} className="hover:bg-[hsl(var(--accent))]/50 transition-colors">
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">
-                    {b.branchId}
-                  </td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">
-                    {b.name}
-                  </td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
-                    {b.address ?? ""}
-                  </td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
-                    {b.ubigeoId ?? ""}
-                  </td>
-                  {/* <td className="px-6 py-4 border-b border-[hsl(var(--border))]">
-                    <div className="flex items-center gap-2">
-                      <button 
-                        className="btn text-xs px-3 py-1" 
-                        onClick={() => startEdit(b)}
-                      >
-                        Editar
-                      </button>
-                      <button 
-                        className="btn text-xs px-3 py-1 text-red-600 border-red-200 hover:bg-red-50" 
-                        onClick={() => remove(String(b.branchId))}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </td> */}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Cards de Sucursales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 text-[hsl(var(--muted-foreground))]">
+            Sin datos
+          </div>
+        )}
+        {filtered.map((b) => (
+          <div key={String(b.branchId)} className="card cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
+            <div className="card-inner">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-[hsl(var(--foreground))]">{b.name}</h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">ID: {b.branchId}</p>
+                </div>
+                <div className="bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-3 py-1 rounded-full text-xs font-medium">
+                  {b.ubigeoId ?? "Sin ubigeo"}
+                </div>
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-[hsl(var(--foreground))]">{b.address ?? "Sin dirección"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Modal Nueva sucursal */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 rounded-3xl backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-inner">
               <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-6">Nueva sucursal</h2>
               <form className="space-y-4" onSubmit={submitNew}>

@@ -201,20 +201,20 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
       {/* Título */}
-      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Inventario</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Inventario</h1>
 
       {/* Selectores: Sucursal y Almacén (en línea) */}
-      <div className="flex items-center gap-4">
-        <select className="select w-64" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+        <select className="select w-full sm:w-64" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
           <option value="">Todas las sucursales</option>
           {branches.map(b => (
             <option key={String(b.id)} value={String(b.id)}>{b.name}</option>
           ))}
         </select>
 
-        <select className="select w-64" value={warehouseCode} onChange={(e) => setWarehouseCode(e.target.value)}>
+        <select className="select w-full sm:w-64" value={warehouseCode} onChange={(e) => setWarehouseCode(e.target.value)}>
           <option value="">Todos los almacenes</option>
           {warehouses.map(w => (
             <option key={`${w.branchId}:${w.code}`} value={String(w.code)}>{w.name || w.code}</option>
@@ -226,7 +226,7 @@ export default function InventoryPage() {
       {/* Buscador */}
       <div className="flex items-center gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar productos…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -234,15 +234,16 @@ export default function InventoryPage() {
       </div>
 
       {/* Acciones cerca de la tabla */}
-      <div className="flex items-center justify-end gap-3">
-        <button className="btn" onClick={openAddModal}>Agregar producto</button>
-        <button className="btn-primary" onClick={saveAll}>Guardar</button>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <button className="btn w-full sm:w-auto" onClick={openAddModal}>Agregar producto</button>
+        <button className="btn-primary w-full sm:w-auto whitespace-nowrap" onClick={saveAll}>Guardar</button>
       </div>
 
       {/* Tabla */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="inline-block min-w-full align-middle sm:px-0 px-4">
+            <table className="w-full text-sm">
             <thead className="bg-[hsl(var(--accent))]">
               <tr className="text-left">
                 <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">SKU</th>
@@ -292,13 +293,14 @@ export default function InventoryPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
       {/* Mini-modal: Agregar producto */}
       {openAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm">
-          <div className="card w-full max-w-md mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="card-inner">
               <h2 className="text-xl font-semibold mb-4">Agregar producto</h2>
               <form className="space-y-4" onSubmit={addProductToList}>

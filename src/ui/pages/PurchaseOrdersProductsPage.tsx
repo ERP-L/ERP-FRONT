@@ -40,11 +40,11 @@ function Tag({ children }: { children: React.ReactNode }) {
 function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-4xl mx-4">
+      <div className="relative z-10 w-full max-w-4xl max-h-[90vh]">
         <div className="card">
-          <div className="card-inner flex flex-col h-[85vh] max-h-[700px]">
+          <div className="card-inner flex flex-col h-[85vh] max-h-[90vh] sm:max-h-[700px] overflow-hidden">
             <div className="flex items-start justify-between mb-4 flex-shrink-0">
               <h3 className="text-xl font-semibold">{title}</h3>
               <button className="btn" onClick={onClose} aria-label="Cerrar">
@@ -409,28 +409,28 @@ export default function PurchaseOrdersProductsPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] overflow-hidden max-h-[calc(93vh-2rem)]">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Órdenes de Compra - Productos</h1>
-        <button className="btn-primary" onClick={() => setOpenNewOrder(true)}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 flex-shrink-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Órdenes de Compra - Productos</h1>
+        <button className="btn-primary w-full sm:w-auto whitespace-nowrap" onClick={() => setOpenNewOrder(true)}>
           Nueva Orden
         </button>
       </div>
 
       {/* Layout: contenido central + sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 flex-1 min-h-0 overflow-hidden max-h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 flex-1 min-h-0 overflow-hidden">
         {/* Contenido central */}
         <div className="flex flex-col min-h-0">
           {/* Search */}
-          <div className="flex items-center gap-4 mb-4 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-4 flex-shrink-0">
             <input
-              className="input flex-1"
+              className="input flex-1 min-w-0"
               placeholder="Buscar órdenes de compra..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <button className="btn">
+            <button className="btn w-full sm:w-auto whitespace-nowrap">
               Filtrar
             </button>
           </div>
@@ -438,9 +438,10 @@ export default function PurchaseOrdersProductsPage() {
           {/* Tabla de órdenes de compra */}
           <div className="card overflow-hidden flex-1 flex flex-col min-h-0">
             <div className="card-inner flex-1 flex flex-col min-h-0 p-0">
-              <div className="overflow-y-auto overflow-x-hidden flex-1 custom-scrollbar">
-                <div className="p-6">
-                  <table className="w-full text-sm">
+              <div className="overflow-y-auto overflow-x-auto flex-1 custom-scrollbar">
+                <div className="p-4 sm:p-6">
+                  <div className="inline-block min-w-full align-middle">
+                    <table className="w-full text-sm">
                     <thead className="bg-[hsl(var(--accent))] sticky top-0 z-20 shadow-md">
                       <tr className="text-left">
                         <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium bg-[hsl(var(--accent))]">N° Orden</th>
@@ -487,6 +488,7 @@ export default function PurchaseOrdersProductsPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             </div>
