@@ -1,14 +1,13 @@
 import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem } from './api-types';
 import { AuthService } from './auth-service';
-
-const API_BASE_URL = '/api';
+import { getApiBaseUrl } from './config';
 
 export class ApiService {
   // Create branch endpoint
   static async createBranch(branchData: CreateBranchRequest): Promise<{ ok: true; data: CreateBranchResponse } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/org/branches`, {
+      const response = await fetch(`${getApiBaseUrl()}/org/branches`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -35,7 +34,7 @@ export class ApiService {
   static async createWarehouse(warehouseData: CreateWarehouseRequest): Promise<{ ok: true; data: CreateWarehouseResponse } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/warehouses`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/warehouses`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -62,7 +61,7 @@ export class ApiService {
   static async getBranches(): Promise<{ ok: true; data: BranchListItem[] } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/org/branches?onlyActive=true`, {
+      const response = await fetch(`${getApiBaseUrl()}/org/branches?onlyActive=true`, {
         method: 'GET',
         headers: {
           'accept': '*/*',
@@ -87,7 +86,7 @@ export class ApiService {
   static async getWarehousesByBranch(branchId: number): Promise<{ ok: true; data: WarehouseListItem[] } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/warehouses?onlyActive=true&branchId=${branchId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/warehouses?onlyActive=true&branchId=${branchId}`, {
         method: 'GET',
         headers: {
           'accept': '*/*',
@@ -112,7 +111,7 @@ export class ApiService {
   static async createCategory(categoryData: CreateCategoryRequest): Promise<{ ok: true; data: CreateCategoryResponse } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/categories`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/categories`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -139,7 +138,7 @@ export class ApiService {
   static async getCategories(): Promise<{ ok: true; data: CategoryHierarchyItem[] } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/categories?onlyActive=true`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/categories?onlyActive=true`, {
         method: 'GET',
         headers: {
           'accept': '*/*',
@@ -164,7 +163,7 @@ export class ApiService {
   static async changeCategoryParent(categoryId: number, newParentId: number | null): Promise<{ ok: true; data: ChangeParentResponse } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/categories/${categoryId}/parent`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/categories/${categoryId}/parent`, {
         method: 'PATCH',
         headers: {
           'accept': '*/*',
@@ -191,7 +190,7 @@ export class ApiService {
   static async getUOMs(): Promise<{ ok: true; data: UOMItem[] } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/uoms`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/uoms`, {
         method: 'GET',
         headers: {
           'accept': '*/*',
@@ -216,7 +215,7 @@ export class ApiService {
   static async createProduct(productData: CreateProductRequest): Promise<{ ok: true; data: CreateProductResponse } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/products`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/products`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -243,7 +242,7 @@ export class ApiService {
   static async getProducts(): Promise<{ ok: true; data: ProductListItem[] } | { ok: false; error: string }> {
     try {
       const authHeader = AuthService.getAuthHeader();
-      const response = await fetch(`${API_BASE_URL}/inventory/products`, {
+      const response = await fetch(`${getApiBaseUrl()}/inventory/products`, {
         method: 'GET',
         headers: {
           'accept': '*/*',

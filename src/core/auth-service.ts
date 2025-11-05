@@ -1,6 +1,5 @@
 import type { LoginRequest, LoginResponse, SignupRequest, SignupResponse, AuthSession } from './auth-types';
-
-const API_BASE_URL = '/api';
+import { getApiBaseUrl } from './config';
 
 export class AuthService {
   private static readonly SESSION_KEY = 'erp_auth_session';
@@ -8,7 +7,7 @@ export class AuthService {
   // Login endpoint
   static async login(credentials: LoginRequest): Promise<{ ok: true; session: AuthSession } | { ok: false; error: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/sign-in`, {
+      const response = await fetch(`${getApiBaseUrl()}/auth/sign-in`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
@@ -50,7 +49,7 @@ export class AuthService {
   static async signup(signupData: SignupRequest): Promise<{ ok: true; data: SignupResponse } | { ok: false; error: string }> {
     console.log(signupData);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/sign-up`, {
+      const response = await fetch(`${getApiBaseUrl()}/auth/sign-up`, {
         method: 'POST',
         headers: {
           'accept': '*/*',
