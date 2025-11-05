@@ -5,8 +5,8 @@ import { AuthService } from "../../core/auth-service";
 export default function LoginPage() {
   const nav = useNavigate();
   const [form, setForm] = useState({ 
-    email: import.meta.env.DEV ? "admin@megamarket.pe" : "", 
-    password: import.meta.env.DEV ? "Giga$h0p2025" : "" 
+    email: import.meta.env.DEV ? "desarrollo.erp@gmail.com" : "", 
+    password: import.meta.env.DEV ? "erp.dev25" : "" 
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         <div className="card card-inner">
           {/* Header */}

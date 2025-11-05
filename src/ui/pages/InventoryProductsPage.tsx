@@ -37,11 +37,11 @@ function Tag({ children }: { children: React.ReactNode }) {
 function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-white/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-3xl mx-4">
+      <div className="relative z-10 w-full max-w-3xl max-h-[90vh]">
         <div className="card">
-          <div className="card-inner flex flex-col h-[80vh] max-h-[600px]">
+          <div className="card-inner flex flex-col h-[80vh] max-h-[90vh] sm:max-h-[600px] overflow-hidden">
             <div className="flex items-start justify-between mb-4 flex-shrink-0">
               <h3 className="text-xl font-semibold">{title}</h3>
               <button className="btn" onClick={onClose} aria-label="Cerrar">
@@ -278,10 +278,10 @@ export default function InventoryProductsPage() {
     <div className="space-y-6">
       {/* Header con selects */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Productos</h1>
-        <div className="flex items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Productos</h1>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <select
-            className="input"
+            className="input w-full sm:w-auto"
             value={activeBranchId}
             onChange={(e) => {
               const newBranchId = e.target.value;
@@ -295,7 +295,7 @@ export default function InventoryProductsPage() {
             ))}
           </select>
           <select
-            className="input"
+            className="input w-full sm:w-auto"
             value={activeWarehouseId}
             onChange={(e) => setActiveWarehouseId(e.target.value)}
           >
@@ -323,14 +323,14 @@ export default function InventoryProductsPage() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar productos en inventario..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <button className="btn">
+        <button className="btn w-full sm:w-auto whitespace-nowrap">
           Filtrar
         </button>
       </div>

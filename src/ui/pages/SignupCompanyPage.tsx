@@ -42,7 +42,7 @@ export default function SignupCompanyPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         <div className="card card-inner">
           {/* Header */}

@@ -213,11 +213,11 @@ export default function WarehousePage() {
   return (
     <div className="space-y-6">
       {/* Título y Selector de sucursal */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Almacenes</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Almacenes</h1>
         <div className="flex items-center gap-4">
           <select
-            className="select w-64"
+            className="select w-full sm:w-64"
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
           >
@@ -232,14 +232,14 @@ export default function WarehousePage() {
       </div>
 
       {/* Buscador + botón crear */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar Almacenes…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <button className="btn-primary" onClick={startCreate}>
+        <button className="btn-primary w-full sm:w-auto whitespace-nowrap" onClick={startCreate}>
           Nuevo almacén
         </button>
       </div>
@@ -299,8 +299,8 @@ export default function WarehousePage() {
 
       {/* Modal Nuevo almacén */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-inner">
               <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-6">Nuevo almacén</h2>
               <form className="space-y-4" onSubmit={submit}>
@@ -392,8 +392,8 @@ export default function WarehousePage() {
 
       {/* Modal Ver Almacén */}
       {viewModalOpen && selectedWarehouse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm">
-          <div className="card w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-4xl max-h-[90vh] overflow-hidden">
             <div className="card-inner">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-[hsl(var(--foreground))]">

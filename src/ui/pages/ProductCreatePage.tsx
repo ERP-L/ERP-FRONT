@@ -187,17 +187,17 @@ export default function ProductCreatePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-[hsl(var(--foreground))]">Catálogo de Productos</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Catálogo de Productos</h1>
 
       {/* Buscador + botón nuevo */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0"
           placeholder="Buscar productos…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <button className="btn-primary" onClick={() => setOpen(true)}>
+        <button className="btn-primary w-full sm:w-auto whitespace-nowrap" onClick={() => setOpen(true)}>
           Nuevo producto
         </button>
       </div>
@@ -205,42 +205,42 @@ export default function ProductCreatePage() {
       {/* Tabla de productos */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[800px]">
             <thead className="bg-[hsl(var(--accent))]">
               <tr className="text-left">
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">SKU</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Nombre del producto</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Categoría</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Unidad de medida</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Tipo de control</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Nivel de reorden</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Tiempo de reposición (días)</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Peso</th>
-                <th className="px-6 py-4 text-[hsl(var(--accent-foreground))] font-medium">Volumen</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">SKU</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium min-w-[200px]">Nombre del producto</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Categoría</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Unidad</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Control</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Reorden</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Reposición</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Peso</th>
+                <th className="px-4 py-3 text-[hsl(var(--accent-foreground))] font-medium whitespace-nowrap">Volumen</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td className="px-6 py-8 text-center text-[hsl(var(--muted-foreground))]" colSpan={9}>
+                  <td className="px-4 py-8 text-center text-[hsl(var(--muted-foreground))]" colSpan={9}>
                     Sin datos
                   </td>
                 </tr>
               )}
               {filtered.map((p: ProductListItem) => (
                 <tr key={p.productId} className="hover:bg-[hsl(var(--accent))]/50 transition-colors">
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">{p.sku}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">{p.productName}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{getCategoryName(p.categoryId)}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{getUOMName(p.uomId)}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))]">
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))] whitespace-nowrap font-medium">{p.sku}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--foreground))]">{p.productName}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{getCategoryName(p.categoryId)}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{getUOMName(p.uomId)}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] whitespace-nowrap">
                     {p.isSerialized ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         Serializado
                       </span>
                     ) : p.isBatchControlled ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Control por lotes
+                        Por lotes
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -248,10 +248,10 @@ export default function ProductCreatePage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{p.reorderLevel}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{p.leadTimeDays}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{p.weight}</td>
-                  <td className="px-6 py-4 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">{p.volume}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{p.reorderLevel ?? "-"}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{p.leadTimeDays ?? "-"}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{p.weight ?? "-"}</td>
+                  <td className="px-4 py-3 border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] whitespace-nowrap">{p.volume ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -261,8 +261,8 @@ export default function ProductCreatePage() {
 
       {/* Modal: Nuevo producto */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 rounded-3xl backdrop-blur-sm">
-          <div className="card w-full max-w-lg mx-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/20 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-inner">
               <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-6">Nuevo producto</h2>
               <form className="space-y-4" onSubmit={submit}>
