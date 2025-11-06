@@ -1,4 +1,4 @@
-import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem } from './api-types';
+import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem, CreateLocationRequest, CreateLocationResponse, LocationListItem } from './api-types';
 import { AuthService } from './auth-service';
 import { getApiBaseUrl } from './config';
 
@@ -259,6 +259,68 @@ export class ApiService {
       return { ok: true, data };
     } catch (error) {
       console.error('Error getting products:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get locations (estanterías) by warehouse
+  static async getWarehouseLocations(warehouseId: number): Promise<{ ok: true; data: LocationListItem[] } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      
+      if (!authHeader || !('Authorization' in authHeader)) {
+        return { ok: false, error: 'No hay sesión activa. Por favor, inicia sesión.' };
+      }
+
+      const response = await fetch(`${getApiBaseUrl()}/inventory/locations?warehouseId=${warehouseId}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || `Error al obtener estanterías: ${response.status} ${response.statusText}` };
+      }
+
+      const data: LocationListItem[] = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting warehouse locations:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Create location (estantería)
+  static async createWarehouseLocation(warehouseId: number, locationData: CreateLocationRequest): Promise<{ ok: true; data: CreateLocationResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      
+      if (!authHeader || !('Authorization' in authHeader)) {
+        return { ok: false, error: 'No hay sesión activa. Por favor, inicia sesión.' };
+      }
+      
+      const response = await fetch(`${getApiBaseUrl()}/inventory/warehouses/${warehouseId}/locations`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(locationData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || `Error al crear estantería: ${response.status} ${response.statusText}` };
+      }
+
+      const data: CreateLocationResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating warehouse location:', error);
       return { ok: false, error: 'Error de conexión' };
     }
   }

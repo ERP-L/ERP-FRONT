@@ -1,27 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ApiService } from "../../core/api-service";
-import type { BranchListItem, WarehouseListItem } from "../../core/api-types";
+import type { BranchListItem, WarehouseListItem, LocationListItem } from "../../core/api-types";
 
 type WarehouseRow = WarehouseListItem;
-
-// Datos hardcodeados de estanterías por almacén
-const SHELVES_DATA: Record<string, Array<{id: string, codeName: string}>> = {
-  "ALM001": [
-    { id: "1", codeName: "EST-A1" },
-    { id: "2", codeName: "EST-A2" },
-    { id: "3", codeName: "EST-A3" }
-  ],
-  "ALM002": [
-    { id: "4", codeName: "EST-B1" },
-    { id: "5", codeName: "EST-B2" }
-  ],
-  "ALM003": [
-    { id: "6", codeName: "EST-C1" },
-    { id: "7", codeName: "EST-C2" },
-    { id: "8", codeName: "EST-C3" },
-    { id: "9", codeName: "EST-C4" }
-  ]
-};
 
 export default function WarehousePage() {
 
@@ -52,7 +33,11 @@ export default function WarehousePage() {
   // Modal ver almacén
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseRow | null>(null);
-  const [shelves, setShelves] = useState<Array<{id: string, codeName: string}>>([]);
+  const [shelves, setShelves] = useState<LocationListItem[]>([]);
+  const [shelvesLoading, setShelvesLoading] = useState(false);
+  const [shelvesError, setShelvesError] = useState<string | null>(null);
+  const [shelfCounts, setShelfCounts] = useState<Record<number, number>>({});
+  const [newShelfCode, setNewShelfCode] = useState("");
 
   // editar vs crear
   const [editing, setEditing] = useState(false);
@@ -80,18 +65,33 @@ export default function WarehousePage() {
 
   useEffect(() => {
     (async () => {
-      if (!branchId) { setList([]); return; }
+      if (!branchId) { setList([]); setShelfCounts({}); return; }
       try {
         const result = await ApiService.getWarehousesByBranch(parseInt(branchId));
         if (result.ok) {
           setList(result.data);
+          // Cargar conteos de estanterías para cada almacén
+          const counts: Record<number, number> = {};
+          await Promise.all(
+            result.data.map(async (warehouse) => {
+              const locationsResult = await ApiService.getWarehouseLocations(warehouse.warehouseId);
+              if (locationsResult.ok) {
+                counts[warehouse.warehouseId] = locationsResult.data.length;
+              } else {
+                counts[warehouse.warehouseId] = 0;
+              }
+            })
+          );
+          setShelfCounts(counts);
         } else {
           console.error('Error loading warehouses:', result.error);
           setList([]);
+          setShelfCounts({});
         }
       } catch (error) {
         console.error('Error loading warehouses:', error);
         setList([]);
+        setShelfCounts({});
       }
     })();
   }, [branchId]); // listar almacenes por sucursal
@@ -139,6 +139,19 @@ export default function WarehousePage() {
       const result = await ApiService.getWarehousesByBranch(parseInt(branchId));
       if (result.ok) {
         setList(result.data);
+        // Cargar conteos de estanterías para cada almacén
+        const counts: Record<number, number> = {};
+        await Promise.all(
+          result.data.map(async (warehouse) => {
+            const locationsResult = await ApiService.getWarehouseLocations(warehouse.warehouseId);
+            if (locationsResult.ok) {
+              counts[warehouse.warehouseId] = locationsResult.data.length;
+            } else {
+              counts[warehouse.warehouseId] = 0;
+            }
+          })
+        );
+        setShelfCounts(counts);
       }
       setOpen(false);
       setEditing(false);
@@ -159,27 +172,70 @@ export default function WarehousePage() {
     setOpen(true);
   }
 
-  function openWarehouseView(warehouse: WarehouseRow) {
+  async function openWarehouseView(warehouse: WarehouseRow) {
     setSelectedWarehouse(warehouse);
-    setShelves(SHELVES_DATA[warehouse.warehouseCode] || []);
     setViewModalOpen(true);
+    setShelvesError(null);
+    setShelvesLoading(true);
+    setNewShelfCode("");
+    
+    try {
+      const result = await ApiService.getWarehouseLocations(warehouse.warehouseId);
+      if (result.ok) {
+        setShelves(result.data);
+      } else {
+        setShelvesError(result.error);
+        setShelves([]);
+      }
+    } catch (error) {
+      console.error('Error loading shelves:', error);
+      setShelvesError('Error al cargar estanterías');
+      setShelves([]);
+    } finally {
+      setShelvesLoading(false);
+    }
   }
 
-  function addShelf(codeName: string) {
-    if (!codeName.trim()) return;
-    const newId = String(Date.now());
-    const newShelf = { id: newId, codeName: codeName.trim() };
-    setShelves(prev => [...prev, newShelf]);
+  async function addShelf(codeName: string) {
+    if (!codeName.trim() || !selectedWarehouse) return;
+    
+    setShelvesError(null);
+    setShelvesLoading(true);
+    
+    try {
+      const result = await ApiService.createWarehouseLocation(selectedWarehouse.warehouseId, {
+        code: codeName.trim(),
+        allowStock: true,
+      });
+      
+      if (result.ok) {
+        // Recargar la lista de estanterías
+        const locationsResult = await ApiService.getWarehouseLocations(selectedWarehouse.warehouseId);
+        if (locationsResult.ok) {
+          setShelves(locationsResult.data);
+          // Actualizar el conteo en el estado
+          setShelfCounts(prev => ({
+            ...prev,
+            [selectedWarehouse.warehouseId]: locationsResult.data.length,
+          }));
+        }
+        // Limpiar el input
+        setNewShelfCode("");
+      } else {
+        setShelvesError(result.error);
+      }
+    } catch (error) {
+      console.error('Error creating shelf:', error);
+      setShelvesError('Error al crear estantería');
+    } finally {
+      setShelvesLoading(false);
+    }
   }
 
-  function removeShelf(id: string) {
-    setShelves(prev => prev.filter(shelf => shelf.id !== id));
-  }
-
-  function updateShelf(id: string, field: 'id' | 'codeName', value: string) {
-    setShelves(prev => prev.map(shelf => 
-      shelf.id === id ? { ...shelf, [field]: value } : shelf
-    ));
+  function removeShelf(id: number) {
+    // TODO: Implementar endpoint de eliminación cuando esté disponible
+    console.log('Delete shelf:', id);
+    setShelvesError("Función de eliminación no implementada aún");
   }
 
   // function startEdit(w: WarehouseRow) {
@@ -252,7 +308,7 @@ export default function WarehousePage() {
           </div>
         )}
         {filtered.map((w) => {
-          const shelvesCount = SHELVES_DATA[w.warehouseCode]?.length || 0;
+          const shelvesCount = shelfCounts[w.warehouseId] || 0;
           return (
             <div 
               key={`${w.branchId}:${w.warehouseCode}`} 
@@ -437,31 +493,42 @@ export default function WarehousePage() {
                 <div className="flex gap-2 mb-4 items-center">
                   <input
                     className="input flex-1"
-                    placeholder="Escribe el nombre de la estantería"
+                    placeholder="Escribe el código de la estantería"
+                    value={newShelfCode}
+                    onChange={(e) => setNewShelfCode(e.target.value)}
+                    disabled={shelvesLoading}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        addShelf(e.currentTarget.value);
-                        e.currentTarget.value = '';
+                      if (e.key === 'Enter' && !shelvesLoading && newShelfCode.trim()) {
+                        addShelf(newShelfCode);
                       }
                     }}
                   />
                   <button 
                     className="btn-primary h-fit"
+                    disabled={shelvesLoading || !newShelfCode.trim()}
                     onClick={() => {
-                      const input = document.querySelector('input[placeholder="Escribe el nombre de la estantería"]') as HTMLInputElement;
-                      if (input) {
-                        addShelf(input.value);
-                        input.value = '';
+                      if (newShelfCode.trim() && !shelvesLoading) {
+                        addShelf(newShelfCode);
                       }
                     }}
                   >
-                    Crear
+                    {shelvesLoading ? "Creando..." : "Crear"}
                   </button>
                 </div>
 
+                {shelvesError && (
+                  <div className="text-sm text-red-600 bg-red-50 p-3 rounded-[var(--radius)] border border-red-200 mb-4">
+                    {shelvesError}
+                  </div>
+                )}
+
                 {/* Lista de estanterías */}
                 <div className="max-h-80 overflow-y-auto">
-                  {shelves.length === 0 ? (
+                  {shelvesLoading && shelves.length === 0 ? (
+                    <div className="text-center py-8 text-[hsl(var(--muted-foreground))] bg-gray-50 rounded-[var(--radius)] border border-gray-200">
+                      Cargando estanterías...
+                    </div>
+                  ) : shelves.length === 0 ? (
                     <div className="text-center py-8 text-[hsl(var(--muted-foreground))] bg-gray-50 rounded-[var(--radius)] border border-gray-200">
                       No hay estanterías registradas
                     </div>
@@ -469,38 +536,21 @@ export default function WarehousePage() {
                     <div className="bg-white border border-gray-200 rounded-[var(--radius)] overflow-hidden">
                       {shelves.map((shelf, index) => (
                         <div 
-                          key={shelf.id} 
+                          key={shelf.locationId} 
                           className={`flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors ${
                             index !== shelves.length - 1 ? 'border-b border-gray-100' : ''
                           }`}
                         >
                           <div className="flex-1">
-                            <input
-                              className="w-full text-sm py-1 bg-transparent border-none focus:bg-white focus:border focus:border-gray-300 focus:rounded px-2 transition-all"
-                              value={shelf.codeName}
-                              onChange={(e) => updateShelf(shelf.id, 'codeName', e.target.value)}
-                              placeholder="Nombre de estantería"
-                            />
+                            <p className="text-sm font-medium text-[hsl(var(--foreground))]">{shelf.code}</p>
+                            <p className="text-xs text-[hsl(var(--muted-foreground))]">ID: {shelf.locationId}</p>
                           </div>
                           <div className="flex items-center gap-1">
                             <button
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              onClick={() => {
-                                const newName = prompt('Nuevo nombre:', shelf.codeName);
-                                if (newName && newName.trim()) {
-                                  updateShelf(shelf.id, 'codeName', newName.trim());
-                                }
-                              }}
-                              title="Modificar"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
                               className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                              onClick={() => removeShelf(shelf.id)}
+                              onClick={() => removeShelf(shelf.locationId)}
                               title="Eliminar"
+                              disabled={true}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
