@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { ApiService } from "../../core/api-service";
 import type { CategoryHierarchyItem, CategoryListItem } from "../../core/api-types";
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ApiService } from "../../core/api-service";
 import type { BranchListItem, WarehouseListItem, ProductListItem, LocationResponse, RecentMovementResponse } from "../../core/api-types";
 import type { WarehouseProductStockItem, WarehouseProductDetailsResponse, CreateMovementRequest } from "../../core/auth-types";
@@ -144,7 +144,7 @@ export default function InventoryProductsPage() {
 
   // Datos mock para notificaciones y órdenes (aún no integrados con API)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const productsMock: Product[] = [
+  /*const productsMock: Product[] = [
     {
       id: "p1",
       name: "Laptop Pro 14",
@@ -178,7 +178,7 @@ export default function InventoryProductsPage() {
       shelves: ["G-1"],
     },
   ];
-
+*/
   const notificationsMock: PurchaseNotification[] = [
     { id: "n1", orderName: "OC-10023", buyer: "Compras Central", productName: "Paracetamol 500mg", productId: "p2", qty: 60, date: "2025-10-21", totalAmount: 72, purchaseDate: "2025-10-21", expiryDate: "2026-10-21" },
     { id: "n2", orderName: "OC-10024", buyer: "Compras Norte", productName: "Laptop Pro 14", productId: "p1", qty: 2, date: "2025-10-22", totalAmount: 2400, purchaseDate: "2025-10-22", expiryDate: null },

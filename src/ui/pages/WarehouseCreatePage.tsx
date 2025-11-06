@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiService } from "../../core/api-service";
 import type { BranchListItem, WarehouseListItem, LocationResponse } from "../../core/api-types";
 
