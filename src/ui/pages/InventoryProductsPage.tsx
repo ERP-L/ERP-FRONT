@@ -37,6 +37,56 @@ function Tag({ children }: { children: React.ReactNode }) {
   );
 }
 
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error" | "warning"; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === "success" 
+    ? "bg-green-500" 
+    : type === "error" 
+    ? "bg-red-500" 
+    : "bg-yellow-500";
+
+  return (
+    <div 
+      className={`fixed top-4 right-4 z-[100] ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transition-all duration-300 ease-in-out transform translate-x-0 opacity-100`}
+      style={{
+        animation: 'slideInRight 0.3s ease-out',
+      }}
+    >
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div className="flex-1">
+        <div className="font-medium">{message}</div>
+      </div>
+      <button
+        onClick={onClose}
+        className="text-white/80 hover:text-white transition-colors"
+        aria-label="Cerrar"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
@@ -67,6 +117,9 @@ function Modal({ open, onClose, title, children, footer }: { open: boolean; onCl
 }
 
 export default function InventoryProductsPage() {
+  // Estado para notificaciones toast
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
+
   // Estado para sucursales y almacenes desde API
   const [branches, setBranches] = useState<BranchListItem[]>([]);
   const [warehousesByBranch, setWarehousesByBranch] = useState<Record<string, WarehouseListItem[]>>({});
@@ -455,15 +508,19 @@ export default function InventoryProductsPage() {
 
   // Estado formulario AJUSTAR
   const [adjustBatchRows, setAdjustBatchRows] = useState<Array<{ batchId: string; qty: number | ""; shelf: string }>>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adjustSeriesRows, setAdjustSeriesRows] = useState<Array<{ seriesId: string; shelf: string }>>([]);
   const [adjustSimpleQty, setAdjustSimpleQty] = useState<number | "">("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adjustSimpleShelf, setAdjustSimpleShelf] = useState<string>("");
   const [adjustReason, setAdjustReason] = useState<string>("");
   
   // Valores originales para calcular diferencias
   const [originalBatchQuantities, setOriginalBatchQuantities] = useState<Record<string, number>>({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [originalSeriesShelves, setOriginalSeriesShelves] = useState<Record<string, string>>({});
   const [originalSimpleQuantity, setOriginalSimpleQuantity] = useState<number>(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [originalSimpleShelf, setOriginalSimpleShelf] = useState<string>("");
 
   // Función helper para obtener locationId desde código de estantería (como string)
@@ -611,7 +668,7 @@ export default function InventoryProductsPage() {
       } else if (movementType === "transferir") {
         // TRF
         if (!transferDestinationWarehouse) {
-          alert("Selecciona un almacén destino");
+          setToast({ message: "Selecciona un almacén destino", type: "warning" });
           return;
         }
 
@@ -683,40 +740,42 @@ export default function InventoryProductsPage() {
         }
       } else if (movementType === "ajustar") {
         // ADJ
-        if (selectedProduct.type === "serie") {
-          // ADJ SERIAL
-          // Verificar si se cambió alguna estantería
-          const hasLocationChanged = adjustSeriesRows.some(row => {
-            const originalShelf = originalSeriesShelves[row.seriesId] || "";
-            return row.shelf !== originalShelf;
-          });
+        // COMENTADO TEMPORALMENTE: Productos tipo serial no se procesan en ajustar
+        // if (selectedProduct.type === "serie") {
+        //   // ADJ SERIAL
+        //   // Verificar si se cambió alguna estantería
+        //   const hasLocationChanged = adjustSeriesRows.some(row => {
+        //     const originalShelf = originalSeriesShelves[row.seriesId] || "";
+        //     return row.shelf !== originalShelf;
+        //   });
 
-          movement = {
-            movementType: "ADJ",
-            lineMode: "SERIAL",
-            movementDate: new Date().toISOString(),
-            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
-            fromWarehouseId: parseInt(activeWarehouseId),
-            autoCreateSerial: false,
-            autoCreateLocation: !hasLocationChanged,
-            lines: adjustSeriesRows.map(row => {
-              return {
-                productId: parseInt(selectedProduct.id),
-                quantity: -1,
-                serialId: parseInt(row.seriesId),
-                locationCode: getLocationIdFromCode(row.shelf),
-                notes: adjustReason || "",
-              };
-            }),
-          };
-        } else if (selectedProduct.type === "lote") {
+        //   movement = {
+        //     movementType: "ADJ",
+        //     lineMode: "SERIAL",
+        //     movementDate: new Date().toISOString(),
+        //     referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
+        //     fromWarehouseId: parseInt(activeWarehouseId),
+        //     autoCreateSerial: false,
+        //     autoCreateLocation: !hasLocationChanged,
+        //     lines: adjustSeriesRows.map(row => {
+        //       return {
+        //         productId: parseInt(selectedProduct.id),
+        //         quantity: -1,
+        //         serialId: parseInt(row.seriesId),
+        //         locationCode: getLocationIdFromCode(row.shelf),
+        //         notes: adjustReason || "",
+        //       };
+        //     }),
+        //   };
+        // } else 
+        if (selectedProduct.type === "lote") {
           // ADJ BATCH
-          // Verificar si se cambió alguna estantería o cantidad
-          const hasLocationChanged = adjustBatchRows.some(row => {
-            const batch = selectedProduct.batches?.find(b => b.id === row.batchId);
-            const originalShelf = batch?.shelf || "";
-            return row.shelf !== originalShelf;
-          });
+          // COMENTADO TEMPORALMENTE: Verificación de estanterías
+          // const hasLocationChanged = adjustBatchRows.some(row => {
+          //   const batch = selectedProduct.batches?.find(b => b.id === row.batchId);
+          //   const originalShelf = batch?.shelf || "";
+          //   return row.shelf !== originalShelf;
+          // });
 
           movement = {
             movementType: "ADJ",
@@ -725,7 +784,7 @@ export default function InventoryProductsPage() {
             referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             autoCreateBatch: false,
-            autoCreateLocation: !hasLocationChanged,
+            // autoCreateLocation: !hasLocationChanged,
             lines: adjustBatchRows.map(row => {
               const originalQty = originalBatchQuantities[row.batchId] || 0;
               const newQty = typeof row.qty === "number" ? row.qty : 0;
@@ -739,16 +798,16 @@ export default function InventoryProductsPage() {
                 quantity: quantityDiff,
                 batchId: parseInt(row.batchId),
                 unitCost: unitCostValue,
-                locationCode: getLocationIdFromCode(row.shelf),
+                // locationCode: getLocationIdFromCode(row.shelf),
                 notes: adjustReason || "",
               };
             }),
           };
-        } else {
+        } else if (selectedProduct.type === "ninguno") {
           // ADJ NORMAL
           const newQty = typeof adjustSimpleQty === "number" ? adjustSimpleQty : 0;
           const quantityDiff = newQty - originalSimpleQuantity;
-          const locationChanged = adjustSimpleShelf !== originalSimpleShelf;
+          // const locationChanged = adjustSimpleShelf !== originalSimpleShelf;
           
           movement = {
             movementType: "ADJ",
@@ -756,12 +815,12 @@ export default function InventoryProductsPage() {
             movementDate: new Date().toISOString(),
             referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
-            autoCreateLocation: !locationChanged,
+            // autoCreateLocation: !locationChanged,
             lines: [{
               productId: parseInt(selectedProduct.id),
               quantity: quantityDiff,
               unitCost: newQty > 0 ? calculateUnitCost(saleTotal, newQty) : undefined,
-              locationCode: getLocationIdFromCode(adjustSimpleShelf),
+              // locationCode: getLocationIdFromCode(adjustSimpleShelf),
               notes: adjustReason || "",
             }],
           };
@@ -769,13 +828,13 @@ export default function InventoryProductsPage() {
       }
 
       if (!movement || movement.lines.length === 0) {
-        alert("Completa los datos del movimiento");
+        setToast({ message: "Completa los datos del movimiento", type: "warning" });
         return;
       }
 
       const result = await ApiService.createInventoryMovement(movement);
       if (result.ok) {
-        alert("Movimiento creado exitosamente");
+        setToast({ message: "Movimiento creado exitosamente", type: "success" });
         // Refrescar productos del almacén
         if (activeWarehouseId) {
           const refreshResult = await ApiService.getWarehouseProducts(parseInt(activeWarehouseId), {
@@ -798,11 +857,11 @@ export default function InventoryProductsPage() {
         if (movementType === "ajustar") resetAdjustForm();
         setSelectedProductIdForMovement("");
       } else {
-        alert(`Error: ${result.error}`);
+        setToast({ message: `Error: ${result.error}`, type: "error" });
       }
     } catch (error) {
       console.error('Error creating movement:', error);
-      alert("Error al crear el movimiento");
+      setToast({ message: "Error al crear el movimiento", type: "error" });
     }
   }
 
@@ -1003,6 +1062,13 @@ export default function InventoryProductsPage() {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* Header con selects */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Productos</h1>
@@ -2482,17 +2548,20 @@ export default function InventoryProductsPage() {
                                             });
                                             setOriginalBatchQuantities(originalQty);
                                           } else if (p.isSerialized && result.data.serials.length > 0) {
-                                            const seriesRows = result.data.serials.map(s => ({ 
-                                              seriesId: String(s.serialId), 
-                                              shelf: s.lastLocation || "" 
-                                            }));
-                                            setAdjustSeriesRows(seriesRows);
-                                            // Guardar estanterías originales
-                                            const originalShelves: Record<string, string> = {};
-                                            seriesRows.forEach(row => {
-                                              originalShelves[row.seriesId] = row.shelf;
-                                            });
-                                            setOriginalSeriesShelves(originalShelves);
+                                            // COMENTADO TEMPORALMENTE: Productos tipo serial no se muestran en ajustar
+                                            // const seriesRows = result.data.serials.map(s => ({ 
+                                            //   seriesId: String(s.serialId), 
+                                            //   shelf: s.lastLocation || "" 
+                                            // }));
+                                            // setAdjustSeriesRows(seriesRows);
+                                            // // Guardar estanterías originales
+                                            // const originalShelves: Record<string, string> = {};
+                                            // seriesRows.forEach(row => {
+                                            //   originalShelves[row.seriesId] = row.shelf;
+                                            // });
+                                            // setOriginalSeriesShelves(originalShelves);
+                                            setAdjustBatchRows([]);
+                                            setAdjustSeriesRows([]);
                                           } else {
                                             setAdjustBatchRows([]);
                                             setAdjustSeriesRows([]);
@@ -2546,7 +2615,7 @@ export default function InventoryProductsPage() {
                                       <tr>
                                         <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Lote</th>
                                         <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Cantidad</th>
-                                        <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Estantería</th>
+                                        {/* <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Estantería</th> */}
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[hsl(var(--border))]">
@@ -2569,7 +2638,7 @@ export default function InventoryProductsPage() {
                                                 }}
                                               />
                                             </td>
-                                            <td className="p-0 border-r border-[hsl(var(--border))]">
+                                            {/* <td className="p-0 border-r border-[hsl(var(--border))]">
                                               <select
                                                 className="input border-0 rounded-none w-full focus:ring-2 focus:ring-[hsl(var(--primary))] focus:outline-none px-3 py-2"
                                                 value={row.shelf}
@@ -2580,7 +2649,7 @@ export default function InventoryProductsPage() {
                                               >
                                                 {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                                               </select>
-                                            </td>
+                                            </td> */}
                                           </tr>
                                         );
                                       })}
@@ -2592,7 +2661,7 @@ export default function InventoryProductsPage() {
                           </div>
                         )}
 
-                        {selectedProduct.type === "serie" && (
+                        {/* {selectedProduct.type === "serie" && (
                           <div className="space-y-3">
                             <div className="space-y-2">
                               <div className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Series a ajustar</div>
@@ -2634,7 +2703,7 @@ export default function InventoryProductsPage() {
                               </div>
                             </div>
                           </div>
-                        )}
+                        )} */}
 
                         {selectedProduct.type === "ninguno" && (
                           <div className="grid sm:grid-cols-2 gap-3">
@@ -2648,7 +2717,7 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setAdjustSimpleQty(e.target.value === "" ? "" : Number(e.target.value))}
                               />
                             </div>
-                            <div className="space-y-1">
+                            {/* <div className="space-y-1">
                               <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería</div>
                               <select
                                 className="input"
@@ -2658,7 +2727,7 @@ export default function InventoryProductsPage() {
                                 <option value="">Selecciona estantería</option>
                                 {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                               </select>
-                            </div>
+                            </div> */}
                           </div>
                         )}
                       </div>
