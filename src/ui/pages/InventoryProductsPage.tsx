@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { ApiService } from "../../core/api-service";
+import type { BranchListItem, WarehouseListItem, ProductListItem, LocationResponse, RecentMovementResponse } from "../../core/api-types";
+import type { WarehouseProductStockItem, WarehouseProductDetailsResponse, CreateMovementRequest } from "../../core/auth-types";
 
 type ProductType = "lote" | "serie" | "ninguno";
 
@@ -34,6 +37,56 @@ function Tag({ children }: { children: React.ReactNode }) {
   );
 }
 
+function Toast({ message, type, onClose }: { message: string; type: "success" | "error" | "warning"; onClose: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === "success" 
+    ? "bg-green-500" 
+    : type === "error" 
+    ? "bg-red-500" 
+    : "bg-yellow-500";
+
+  return (
+    <div 
+      className={`fixed top-4 right-4 z-[100] ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transition-all duration-300 ease-in-out transform translate-x-0 opacity-100`}
+      style={{
+        animation: 'slideInRight 0.3s ease-out',
+      }}
+    >
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+      <div className="flex-1">
+        <div className="font-medium">{message}</div>
+      </div>
+      <button
+        onClick={onClose}
+        className="text-white/80 hover:text-white transition-colors"
+        aria-label="Cerrar"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode }) {
   if (!open) return null;
   return (
@@ -64,21 +117,33 @@ function Modal({ open, onClose, title, children, footer }: { open: boolean; onCl
 }
 
 export default function InventoryProductsPage() {
-  // Data mock
-  const branches = [
-    { id: "b1", name: "Sucursal Centro" },
-    { id: "b2", name: "Sucursal Norte" },
-  ];
-  const warehousesByBranch: Record<string, Array<{ id: string; name: string }>> = {
-    b1: [
-      { id: "w1", name: "Almacén A" },
-      { id: "w2", name: "Almacén B" },
-    ],
-    b2: [
-      { id: "w3", name: "Depósito 1" },
-    ],
-  };
+  // Estado para notificaciones toast
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
 
+  // Estado para sucursales y almacenes desde API
+  const [branches, setBranches] = useState<BranchListItem[]>([]);
+  const [warehousesByBranch, setWarehousesByBranch] = useState<Record<string, WarehouseListItem[]>>({});
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
+
+  // Estado para productos desde API
+  const [warehouseProducts, setWarehouseProducts] = useState<WarehouseProductStockItem[]>([]);
+  const [productDetails, setProductDetails] = useState<WarehouseProductDetailsResponse | null>(null);
+  const [loadingProductDetails, setLoadingProductDetails] = useState(false);
+
+  // Estado para lista completa de productos (para selectores en modales de movimientos)
+  const [modalProducts, setModalProducts] = useState<ProductListItem[]>([]);
+  const [loadingModalProducts, setLoadingModalProducts] = useState(false);
+
+  // Estado para estanterías disponibles por almacén
+  const [locations, setLocations] = useState<LocationResponse[]>([]);
+
+  // Estado para movimientos recientes
+  const [recentMovements, setRecentMovements] = useState<RecentMovementResponse[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(false);
+
+  // Datos mock para notificaciones y órdenes (aún no integrados con API)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const productsMock: Product[] = [
     {
       id: "p1",
@@ -125,26 +190,219 @@ export default function InventoryProductsPage() {
     { id: "so2", orderName: "OV-002", productName: "Laptop Pro 14", productId: "p1", qty: 1, totalAmount: 1200 },
   ];
 
-  // Mock data para movimientos
-  const movementsMock = [
-    { id: "m1", type: "agregar", productName: "Paracetamol 500mg", quantity: 60, date: "2025-01-15", user: "Juan Pérez", orderRef: "OC-10023" },
-    { id: "m2", type: "quitar", productName: "Laptop Pro 14", quantity: 1, date: "2025-01-14", user: "María García", orderRef: "OV-001" },
-    { id: "m3", type: "transferir", productName: "Café en grano 1kg", quantity: 10, date: "2025-01-13", user: "Carlos López", destination: "Sucursal Norte" },
-    { id: "m4", type: "ajustar", productName: "Paracetamol 500mg", quantity: -5, date: "2025-01-12", user: "Ana Martínez", reason: "Ajuste de inventario" },
-    { id: "m5", type: "agregar", productName: "Laptop Pro 14", quantity: 2, date: "2025-01-11", user: "Juan Pérez", orderRef: "OC-10024" },
-  ];
 
   // Estado UI
-  const [activeBranchId, setActiveBranchId] = useState<string>(branches[0]?.id ?? "");
-  const [activeWarehouseId, setActiveWarehouseId] = useState<string>(warehousesByBranch[branches[0]?.id ?? ""]?.[0]?.id ?? "");
+  const [activeBranchId, setActiveBranchId] = useState<string>("");
+  const [activeWarehouseId, setActiveWarehouseId] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"productos" | "movimientos">("productos");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Cargar sucursales al montar el componente
+  useEffect(() => {
+    (async () => {
+      setLoadingBranches(true);
+      try {
+        const result = await ApiService.getBranches();
+        if (result.ok) {
+          setBranches(result.data);
+          if (result.data.length > 0) {
+            const firstBranchId = String(result.data[0].branchId);
+            setActiveBranchId(firstBranchId);
+          }
+        } else {
+          console.error('Error loading branches:', result.error);
+          setBranches([]);
+        }
+      } catch (error) {
+        console.error('Error loading branches:', error);
+        setBranches([]);
+      } finally {
+        setLoadingBranches(false);
+      }
+    })();
+  }, []);
+
+  // Cargar almacenes cuando cambia la sucursal activa
+  useEffect(() => {
+    if (!activeBranchId) {
+      setWarehousesByBranch({});
+      setActiveWarehouseId("");
+      return;
+    }
+
+    (async () => {
+      setLoadingWarehouses(true);
+      try {
+        const result = await ApiService.getWarehousesByBranch(parseInt(activeBranchId));
+        if (result.ok) {
+          setWarehousesByBranch(prev => ({
+            ...prev,
+            [activeBranchId]: result.data,
+          }));
+          if (result.data.length > 0) {
+            setActiveWarehouseId(String(result.data[0].warehouseId));
+          } else {
+            setActiveWarehouseId("");
+          }
+        } else {
+          console.error('Error loading warehouses:', result.error);
+          setWarehousesByBranch(prev => ({
+            ...prev,
+            [activeBranchId]: [],
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading warehouses:', error);
+        setWarehousesByBranch(prev => ({
+          ...prev,
+          [activeBranchId]: [],
+        }));
+      } finally {
+        setLoadingWarehouses(false);
+      }
+    })();
+  }, [activeBranchId]);
+
+  // Cargar estanterías cuando cambia el almacén
+  useEffect(() => {
+    if (!activeWarehouseId) {
+      setLocations([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const result = await ApiService.getLocationsByWarehouse(parseInt(activeWarehouseId), true);
+        if (result.ok) {
+          setLocations(result.data);
+        } else {
+          console.error('Error loading locations:', result.error);
+          setLocations([]);
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        setLocations([]);
+      }
+    })();
+  }, [activeWarehouseId]);
+
+  // Cargar movimientos recientes cuando cambia el almacén
+  useEffect(() => {
+    if (!activeWarehouseId) {
+      setRecentMovements([]);
+      return;
+    }
+
+    (async () => {
+      setLoadingMovements(true);
+      try {
+        const result = await ApiService.getRecentMovements(parseInt(activeWarehouseId), 1, 20);
+        if (result.ok) {
+          setRecentMovements(result.data);
+        } else {
+          console.error('Error loading recent movements:', result.error);
+          setRecentMovements([]);
+        }
+      } catch (error) {
+        console.error('Error loading recent movements:', error);
+        setRecentMovements([]);
+      } finally {
+        setLoadingMovements(false);
+      }
+    })();
+  }, [activeWarehouseId]);
+
+  // Estado para carga de productos
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  // Cargar productos del almacén cuando cambia el almacén o el término de búsqueda
+  useEffect(() => {
+    if (!activeWarehouseId) {
+      setWarehouseProducts([]);
+      return;
+    }
+
+    (async () => {
+      setLoadingProducts(true);
+      try {
+        const result = await ApiService.getWarehouseProducts(parseInt(activeWarehouseId), {
+          search: searchTerm || undefined,
+        });
+        if (result.ok) {
+          setWarehouseProducts(result.data);
+        } else {
+          console.error('Error loading products:', result.error);
+          setWarehouseProducts([]);
+        }
+      } catch (error) {
+        console.error('Error loading products:', error);
+        setWarehouseProducts([]);
+      } finally {
+        setLoadingProducts(false);
+      }
+    })();
+  }, [activeWarehouseId, searchTerm]);
 
   // Modal detalle de producto
   const [openProductId, setOpenProductId] = useState<string | null>(null);
 
+  // Cargar detalles del producto cuando se abre el modal
+  useEffect(() => {
+    if (!openProductId || !activeWarehouseId) {
+      setProductDetails(null);
+      return;
+    }
+
+    (async () => {
+      setLoadingProductDetails(true);
+      try {
+        const result = await ApiService.getWarehouseProductDetails(
+          parseInt(activeWarehouseId),
+          parseInt(openProductId)
+        );
+        if (result.ok) {
+          setProductDetails(result.data);
+        } else {
+          console.error('Error loading product details:', result.error);
+          setProductDetails(null);
+        }
+      } catch (error) {
+        console.error('Error loading product details:', error);
+        setProductDetails(null);
+      } finally {
+        setLoadingProductDetails(false);
+      }
+    })();
+  }, [openProductId, activeWarehouseId]);
+
   // Modales de movimientos
   const [movementType, setMovementType] = useState<null | "agregar" | "quitar" | "transferir" | "ajustar">(null);
+
+  // Cargar productos para selectores en modales cuando se abre un modal de movimiento
+  useEffect(() => {
+    if (!movementType) {
+      setModalProducts([]);
+      return;
+    }
+
+    (async () => {
+      setLoadingModalProducts(true);
+      try {
+        const result = await ApiService.getProducts();
+        if (result.ok) {
+          setModalProducts(result.data);
+        } else {
+          console.error('Error loading modal products:', result.error);
+          setModalProducts([]);
+        }
+      } catch (error) {
+        console.error('Error loading modal products:', error);
+        setModalProducts([]);
+      } finally {
+        setLoadingModalProducts(false);
+      }
+    })();
+  }, [movementType]);
 
   // Selecciones para formularios
   const [selectedProductIdForMovement, setSelectedProductIdForMovement] = useState<string>("");
@@ -184,18 +442,428 @@ export default function InventoryProductsPage() {
   // Estado formulario TRANSFERIR
   const [transferDestinationBranch, setTransferDestinationBranch] = useState<string>("");
   const [transferDestinationWarehouse, setTransferDestinationWarehouse] = useState<string>("");
+  const [transferDestinationWarehouses, setTransferDestinationWarehouses] = useState<WarehouseListItem[]>([]);
+  const [loadingTransferWarehouses, setLoadingTransferWarehouses] = useState(false);
+  const [transferDestinationLocations, setTransferDestinationLocations] = useState<LocationResponse[]>([]);
   const [transferBatchRows, setTransferBatchRows] = useState<Array<{ batchId: string; qty: number | ""; shelf: string }>>([]);
   const [transferSeriesRows, setTransferSeriesRows] = useState<Array<{ seriesId: string; shelf: string }>>([]);
   const [transferSimpleQty, setTransferSimpleQty] = useState<number | "">("");
   const [transferSimpleShelf, setTransferSimpleShelf] = useState<string>("");
   const [transferReason, setTransferReason] = useState<string>("");
 
+  // Cargar almacenes destino cuando cambia la sucursal destino en transferir
+  useEffect(() => {
+    if (!transferDestinationBranch) {
+      setTransferDestinationWarehouses([]);
+      setTransferDestinationWarehouse("");
+      return;
+    }
+
+    (async () => {
+      setLoadingTransferWarehouses(true);
+      try {
+        const result = await ApiService.getWarehousesByBranch(parseInt(transferDestinationBranch));
+        if (result.ok) {
+          setTransferDestinationWarehouses(result.data);
+          if (result.data.length > 0) {
+            setTransferDestinationWarehouse(String(result.data[0].warehouseId));
+          } else {
+            setTransferDestinationWarehouse("");
+          }
+        } else {
+          console.error('Error loading transfer warehouses:', result.error);
+          setTransferDestinationWarehouses([]);
+        }
+      } catch (error) {
+        console.error('Error loading transfer warehouses:', error);
+        setTransferDestinationWarehouses([]);
+      } finally {
+        setLoadingTransferWarehouses(false);
+      }
+    })();
+  }, [transferDestinationBranch]);
+
+  // Cargar estanterías del almacén destino cuando cambia el almacén destino en transferir
+  useEffect(() => {
+    if (!transferDestinationWarehouse) {
+      setTransferDestinationLocations([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const result = await ApiService.getLocationsByWarehouse(parseInt(transferDestinationWarehouse), true);
+        if (result.ok) {
+          setTransferDestinationLocations(result.data);
+        } else {
+          console.error('Error loading transfer destination locations:', result.error);
+          setTransferDestinationLocations([]);
+        }
+      } catch (error) {
+        console.error('Error loading transfer destination locations:', error);
+        setTransferDestinationLocations([]);
+      }
+    })();
+  }, [transferDestinationWarehouse]);
+
   // Estado formulario AJUSTAR
   const [adjustBatchRows, setAdjustBatchRows] = useState<Array<{ batchId: string; qty: number | ""; shelf: string }>>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adjustSeriesRows, setAdjustSeriesRows] = useState<Array<{ seriesId: string; shelf: string }>>([]);
   const [adjustSimpleQty, setAdjustSimpleQty] = useState<number | "">("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [adjustSimpleShelf, setAdjustSimpleShelf] = useState<string>("");
   const [adjustReason, setAdjustReason] = useState<string>("");
+  
+  // Valores originales para calcular diferencias
+  const [originalBatchQuantities, setOriginalBatchQuantities] = useState<Record<string, number>>({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [originalSeriesShelves, setOriginalSeriesShelves] = useState<Record<string, string>>({});
+  const [originalSimpleQuantity, setOriginalSimpleQuantity] = useState<number>(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [originalSimpleShelf, setOriginalSimpleShelf] = useState<string>("");
+
+  // Función helper para obtener locationId desde código de estantería (como string)
+  function getLocationIdFromCode(shelfCode: string): string | undefined {
+    if (!shelfCode) return undefined;
+    const location = locations.find(l => l.code === shelfCode);
+    return location?.locationId ? String(location.locationId) : undefined;
+  }
+
+  // Función para crear movimiento
+  async function handleSubmitMovement() {
+    if (!selectedProduct || !activeWarehouseId) return;
+
+    try {
+      let movement: CreateMovementRequest | null = null;
+
+      // Calcular unitCost basado en precio total y cantidad
+      const calculateUnitCost = (totalPrice: number | "", quantity: number): number => {
+        if (typeof totalPrice === "number" && totalPrice > 0 && quantity > 0) {
+          return totalPrice / quantity;
+        }
+        return selectedProduct.averageCost || 0;
+      };
+
+      if (movementType === "agregar") {
+        // IN
+        if (selectedProduct.type === "serie") {
+          // IN SERIAL
+          movement = {
+            movementType: "IN",
+            lineMode: "SERIAL",
+            movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
+            toWarehouseId: parseInt(activeWarehouseId),
+            autoCreateSerial: true,
+            autoCreateLocation: true,
+            lines: seriesRows.map(row => {
+              const totalQty = seriesRows.length;
+              const unitCostValue = calculateUnitCost(purchaseTotal, totalQty);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: 1,
+                unitCost: unitCostValue,
+                serialNumber: row.name,
+                locationCode: getLocationIdFromCode(row.shelf),
+                notes: movementReason || "",
+              };
+            }),
+          };
+        } else if (selectedProduct.type === "lote") {
+          // IN BATCH
+          movement = {
+            movementType: "IN",
+            lineMode: "BATCH",
+            movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
+            toWarehouseId: parseInt(activeWarehouseId),
+            autoCreateBatch: true,
+            autoCreateLocation: true,
+            lines: batchRows.map(row => {
+              const quantity = typeof row.qty === "number" ? row.qty : 0;
+              const totalQty = batchRows.reduce((sum, r) => sum + (typeof r.qty === "number" ? r.qty : 0), 0);
+              const unitCostValue = calculateUnitCost(purchaseTotal, totalQty);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: quantity,
+                unitCost: unitCostValue,
+                batchNumber: row.name,
+                batchManufactureDate: row.purchaseDate,
+                batchExpirationDate: row.expiryDate,
+                locationCode: getLocationIdFromCode(row.shelf),
+                notes: movementReason || "",
+              };
+            }),
+          };
+        } else {
+          // IN NORMAL
+          movement = {
+            movementType: "IN",
+            lineMode: "NORMAL",
+            movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
+            toWarehouseId: parseInt(activeWarehouseId),
+            autoCreateLocation: true,
+            lines: [{
+              productId: parseInt(selectedProduct.id),
+              quantity: typeof simpleQty === "number" ? simpleQty : 0,
+              unitCost: calculateUnitCost(purchaseTotal, typeof simpleQty === "number" ? simpleQty : 0),
+              locationCode: getLocationIdFromCode(simpleShelf),
+              notes: movementReason || "",
+            }],
+          };
+        }
+      } else if (movementType === "quitar") {
+        // OUT
+        if (selectedProduct.type === "serie") {
+          // OUT SERIAL
+          movement = {
+            movementType: "OUT",
+            lineMode: "SERIAL",
+            movementDate: new Date().toISOString(),
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            autoCreateSerial: false,
+            autoCreateLocation: false,
+            lines: removeSelectedSeries.map(serialId => ({
+              productId: parseInt(selectedProduct.id),
+              quantity: 1,
+              serialId: parseInt(serialId),
+              notes: removeReason || "",
+            })),
+          };
+        } else if (selectedProduct.type === "lote") {
+          // OUT BATCH
+          movement = {
+            movementType: "OUT",
+            lineMode: "BATCH",
+            movementDate: new Date().toISOString(),
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            autoCreateBatch: false,
+            autoCreateLocation: false,
+            lines: removeBatchRows.map(row => ({
+              productId: parseInt(selectedProduct.id),
+              quantity: typeof row.qty === "number" ? row.qty : 0,
+              batchId: parseInt(row.batchId),
+              notes: removeReason || "",
+            })),
+          };
+        } else {
+          // OUT NORMAL
+          movement = {
+            movementType: "OUT",
+            lineMode: "NORMAL",
+            movementDate: new Date().toISOString(),
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            lines: [{
+              productId: parseInt(selectedProduct.id),
+              quantity: typeof removeSimpleQty === "number" ? removeSimpleQty : 0,
+              notes: removeReason || "",
+            }],
+          };
+        }
+      } else if (movementType === "transferir") {
+        // TRF
+        if (!transferDestinationWarehouse) {
+          setToast({ message: "Selecciona un almacén destino", type: "warning" });
+          return;
+        }
+
+        if (selectedProduct.type === "serie") {
+          // TRF SERIAL
+          movement = {
+            movementType: "TRF",
+            lineMode: "SERIAL",
+            movementDate: new Date().toISOString(),
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            toWarehouseId: parseInt(transferDestinationWarehouse),
+            autoCreateSerial: false,
+            autoCreateLocation: true,
+            lines: transferSeriesRows.map(row => {
+              const location = transferDestinationLocations.find(l => l.code === row.shelf);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: 1,
+                serialId: parseInt(row.seriesId),
+                locationCode: location?.locationId ? String(location.locationId) : undefined,
+                notes: transferReason || "",
+              };
+            }),
+          };
+        } else if (selectedProduct.type === "lote") {
+          // TRF BATCH
+          movement = {
+            movementType: "TRF",
+            lineMode: "BATCH",
+            movementDate: new Date().toISOString(),
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            toWarehouseId: parseInt(transferDestinationWarehouse),
+            autoCreateBatch: false,
+            autoCreateLocation: true,
+            lines: transferBatchRows.map(row => {
+              const location = transferDestinationLocations.find(l => l.code === row.shelf);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: typeof row.qty === "number" ? row.qty : 0,
+                batchId: parseInt(row.batchId),
+                locationCode: location?.locationId ? String(location.locationId) : undefined,
+                notes: transferReason || "",
+              };
+            }),
+          };
+        } else {
+          // TRF NORMAL
+          movement = {
+            movementType: "TRF",
+            lineMode: "NORMAL",
+            movementDate: new Date().toISOString(),
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            toWarehouseId: parseInt(transferDestinationWarehouse),
+            autoCreateLocation: true,
+            lines: [{
+              productId: parseInt(selectedProduct.id),
+              quantity: typeof transferSimpleQty === "number" ? transferSimpleQty : 0,
+              unitCost: selectedProduct.averageCost || 0,
+              locationCode: (() => {
+                const location = transferDestinationLocations.find(l => l.code === transferSimpleShelf);
+                return location?.locationId ? String(location.locationId) : undefined;
+              })(),
+              notes: transferReason || "",
+            }],
+          };
+        }
+      } else if (movementType === "ajustar") {
+        // ADJ
+        // COMENTADO TEMPORALMENTE: Productos tipo serial no se procesan en ajustar
+        // if (selectedProduct.type === "serie") {
+        //   // ADJ SERIAL
+        //   // Verificar si se cambió alguna estantería
+        //   const hasLocationChanged = adjustSeriesRows.some(row => {
+        //     const originalShelf = originalSeriesShelves[row.seriesId] || "";
+        //     return row.shelf !== originalShelf;
+        //   });
+
+        //   movement = {
+        //     movementType: "ADJ",
+        //     lineMode: "SERIAL",
+        //     movementDate: new Date().toISOString(),
+        //     referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
+        //     fromWarehouseId: parseInt(activeWarehouseId),
+        //     autoCreateSerial: false,
+        //     autoCreateLocation: !hasLocationChanged,
+        //     lines: adjustSeriesRows.map(row => {
+        //       return {
+        //         productId: parseInt(selectedProduct.id),
+        //         quantity: -1,
+        //         serialId: parseInt(row.seriesId),
+        //         locationCode: getLocationIdFromCode(row.shelf),
+        //         notes: adjustReason || "",
+        //       };
+        //     }),
+        //   };
+        // } else 
+        if (selectedProduct.type === "lote") {
+          // ADJ BATCH
+          // COMENTADO TEMPORALMENTE: Verificación de estanterías
+          // const hasLocationChanged = adjustBatchRows.some(row => {
+          //   const batch = selectedProduct.batches?.find(b => b.id === row.batchId);
+          //   const originalShelf = batch?.shelf || "";
+          //   return row.shelf !== originalShelf;
+          // });
+
+          movement = {
+            movementType: "ADJ",
+            lineMode: "BATCH",
+            movementDate: new Date().toISOString(),
+            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            autoCreateBatch: false,
+            // autoCreateLocation: !hasLocationChanged,
+            lines: adjustBatchRows.map(row => {
+              const originalQty = originalBatchQuantities[row.batchId] || 0;
+              const newQty = typeof row.qty === "number" ? row.qty : 0;
+              const quantityDiff = newQty - originalQty;
+              
+              const totalQty = adjustBatchRows.reduce((sum, r) => sum + (typeof r.qty === "number" ? r.qty : 0), 0);
+              const unitCostValue = calculateUnitCost(saleTotal, totalQty);
+              
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: quantityDiff,
+                batchId: parseInt(row.batchId),
+                unitCost: unitCostValue,
+                // locationCode: getLocationIdFromCode(row.shelf),
+                notes: adjustReason || "",
+              };
+            }),
+          };
+        } else if (selectedProduct.type === "ninguno") {
+          // ADJ NORMAL
+          const newQty = typeof adjustSimpleQty === "number" ? adjustSimpleQty : 0;
+          const quantityDiff = newQty - originalSimpleQuantity;
+          // const locationChanged = adjustSimpleShelf !== originalSimpleShelf;
+          
+          movement = {
+            movementType: "ADJ",
+            lineMode: "NORMAL",
+            movementDate: new Date().toISOString(),
+            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
+            fromWarehouseId: parseInt(activeWarehouseId),
+            // autoCreateLocation: !locationChanged,
+            lines: [{
+              productId: parseInt(selectedProduct.id),
+              quantity: quantityDiff,
+              unitCost: newQty > 0 ? calculateUnitCost(saleTotal, newQty) : undefined,
+              // locationCode: getLocationIdFromCode(adjustSimpleShelf),
+              notes: adjustReason || "",
+            }],
+          };
+        }
+      }
+
+      if (!movement || movement.lines.length === 0) {
+        setToast({ message: "Completa los datos del movimiento", type: "warning" });
+        return;
+      }
+
+      const result = await ApiService.createInventoryMovement(movement);
+      if (result.ok) {
+        setToast({ message: "Movimiento creado exitosamente", type: "success" });
+        // Refrescar productos del almacén
+        if (activeWarehouseId) {
+          const refreshResult = await ApiService.getWarehouseProducts(parseInt(activeWarehouseId), {
+            search: searchTerm || undefined,
+          });
+          if (refreshResult.ok) {
+            setWarehouseProducts(refreshResult.data);
+          }
+          // Refrescar movimientos recientes
+          const movementsResult = await ApiService.getRecentMovements(parseInt(activeWarehouseId), 1, 20);
+          if (movementsResult.ok) {
+            setRecentMovements(movementsResult.data);
+          }
+        }
+        // Cerrar modal y resetear formularios
+        setMovementType(null);
+        if (movementType === "agregar") resetAddForm();
+        if (movementType === "quitar") resetRemoveForm();
+        if (movementType === "transferir") resetTransferForm();
+        if (movementType === "ajustar") resetAdjustForm();
+        setSelectedProductIdForMovement("");
+      } else {
+        setToast({ message: `Error: ${result.error}`, type: "error" });
+      }
+    } catch (error) {
+      console.error('Error creating movement:', error);
+      setToast({ message: "Error al crear el movimiento", type: "error" });
+    }
+  }
 
   function resetAddForm() {
     setPurchaseOrderRef("");
@@ -228,6 +896,8 @@ export default function InventoryProductsPage() {
   function resetTransferForm() {
     setTransferDestinationBranch("");
     setTransferDestinationWarehouse("");
+    setTransferDestinationWarehouses([]);
+    setTransferDestinationLocations([]);
     setTransferBatchRows([]);
     setTransferSeriesRows([]);
     setTransferSimpleQty("");
@@ -243,26 +913,142 @@ export default function InventoryProductsPage() {
     setAdjustSimpleQty("");
     setAdjustSimpleShelf("");
     setAdjustReason("");
+    setOriginalBatchQuantities({});
+    setOriginalSeriesShelves({});
+    setOriginalSimpleQuantity(0);
+    setOriginalSimpleShelf("");
     setProductSearchTerm("");
     setIsProductDropdownOpen(false);
   }
 
+  // Mapear productos de API a formato local
   const products = useMemo(() => {
-    // En esta versión mock no filtramos por sucursal/almacén; se podría filtrar aquí
-    return productsMock.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
-
-  const filteredProductsForSelection = useMemo(() => {
-    if (!productSearchTerm || productSearchTerm.trim() === "") {
-      return productsMock;
+    if (!warehouseProducts || warehouseProducts.length === 0) {
+      return [];
     }
-    return productsMock.filter(p => p.name.toLowerCase().includes(productSearchTerm.toLowerCase()));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productSearchTerm]);
+    return warehouseProducts.map((p): Product => ({
+      id: String(p.productId),
+      name: p.productName,
+      type: p.isBatchControlled ? "lote" : p.isSerialized ? "serie" : "ninguno",
+      averageCost: p.avgCost,
+      quantity: p.quantity,
+      shelves: p.locationsStr ? p.locationsStr.split(',').map(s => s.trim()) : [],
+    }));
+  }, [warehouseProducts]);
 
-  const selectedProduct = useMemo(() => productsMock.find(p => p.id === selectedProductIdForMovement) ?? null, [selectedProductIdForMovement]); // eslint-disable-line react-hooks/exhaustive-deps
-  const openProduct = useMemo(() => productsMock.find(p => p.id === openProductId) ?? null, [openProductId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Productos filtrados para selección (usar productos de modales)
+  const filteredProductsForSelection = useMemo(() => {
+    if (!modalProducts || modalProducts.length === 0) {
+      return [];
+    }
+    if (!productSearchTerm || productSearchTerm.trim() === "") {
+      return modalProducts;
+    }
+    return modalProducts.filter(p => 
+      p.productName.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      p.sku.toLowerCase().includes(productSearchTerm.toLowerCase())
+    );
+  }, [productSearchTerm, modalProducts]);
+
+  // Estado para detalles del producto seleccionado para movimientos
+  const [selectedProductDetails, setSelectedProductDetails] = useState<WarehouseProductDetailsResponse | null>(null);
+  const [loadingSelectedProductDetails, setLoadingSelectedProductDetails] = useState(false);
+
+  // Cargar detalles del producto seleccionado para movimientos
+  useEffect(() => {
+    if (!selectedProductIdForMovement || !activeWarehouseId) {
+      setSelectedProductDetails(null);
+      return;
+    }
+
+    (async () => {
+      setLoadingSelectedProductDetails(true);
+      try {
+        const result = await ApiService.getWarehouseProductDetails(
+          parseInt(activeWarehouseId),
+          parseInt(selectedProductIdForMovement)
+        );
+        if (result.ok) {
+          setSelectedProductDetails(result.data);
+        } else {
+          console.error('Error loading selected product details:', result.error);
+          setSelectedProductDetails(null);
+        }
+      } catch (error) {
+        console.error('Error loading selected product details:', error);
+        setSelectedProductDetails(null);
+      } finally {
+        setLoadingSelectedProductDetails(false);
+      }
+    })();
+  }, [selectedProductIdForMovement, activeWarehouseId]);
+
+  // Producto seleccionado para movimientos (usar productos de modales)
+  const selectedProduct = useMemo(() => {
+    if (!selectedProductIdForMovement) return null;
+    if (!modalProducts || !Array.isArray(modalProducts) || modalProducts.length === 0) return null;
+    const p = modalProducts.find(p => String(p.productId) === selectedProductIdForMovement);
+    if (!p) return null;
+    // Obtener detalles del almacén si está disponible
+    const warehouseProduct = warehouseProducts.find(wp => wp.productId === p.productId);
+    return {
+      id: String(p.productId),
+      name: p.productName,
+      type: p.isBatchControlled ? "lote" : p.isSerialized ? "serie" : "ninguno",
+      averageCost: warehouseProduct?.avgCost || 0,
+      quantity: warehouseProduct?.quantity || 0,
+      shelves: warehouseProduct?.locationsStr ? warehouseProduct.locationsStr.split(',').map(s => s.trim()) : [],
+      batches: (selectedProductDetails?.batches && Array.isArray(selectedProductDetails.batches)) 
+        ? selectedProductDetails.batches.map(b => ({
+            id: String(b.batchId),
+            name: b.batchNumber,
+            qty: b.quantity,
+            purchaseDate: b.manufactureDate,
+            expiryDate: b.expirationDate,
+            shelf: b.lastLocation || "",
+          }))
+        : [],
+      series: (selectedProductDetails?.serials && Array.isArray(selectedProductDetails.serials))
+        ? selectedProductDetails.serials.map(s => ({
+            id: String(s.serialId),
+            name: s.serialNumber,
+            shelf: s.lastLocation || "",
+          }))
+        : [],
+    };
+  }, [selectedProductIdForMovement, modalProducts, warehouseProducts, selectedProductDetails]);
+
+  // Producto abierto para ver detalles
+  const openProduct = useMemo(() => {
+    if (!openProductId) return null;
+    const p = warehouseProducts.find(p => String(p.productId) === openProductId);
+    if (!p) return null;
+    return {
+      id: String(p.productId),
+      name: p.productName,
+      type: p.isBatchControlled ? "lote" : p.isSerialized ? "serie" : "ninguno",
+      averageCost: p.avgCost,
+      quantity: p.quantity,
+      shelves: p.locationsStr ? p.locationsStr.split(',').map(s => s.trim()) : [],
+      batches: (productDetails?.batches && Array.isArray(productDetails.batches))
+        ? productDetails.batches.map(b => ({
+            id: String(b.batchId),
+            name: b.batchNumber,
+            qty: b.quantity,
+            purchaseDate: b.manufactureDate,
+            expiryDate: b.expirationDate,
+            shelf: b.lastLocation || "",
+          }))
+        : [],
+      series: (productDetails?.serials && Array.isArray(productDetails.serials))
+        ? productDetails.serials.map(s => ({
+            id: String(s.serialId),
+            name: s.serialNumber,
+            shelf: s.lastLocation || "",
+          }))
+        : [],
+    };
+  }, [openProductId, warehouseProducts, productDetails]);
 
   const currentWarehouses = warehousesByBranch[activeBranchId] ?? [];
 
@@ -276,31 +1062,42 @@ export default function InventoryProductsPage() {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* Header con selects */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl sm:text-3xl font-bold text-[hsl(var(--foreground))]">Inventario de Productos</h1>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <select
-            className="input w-full sm:w-auto"
+            className="input w-full sm:w-64"
             value={activeBranchId}
+            disabled={loadingBranches}
             onChange={(e) => {
               const newBranchId = e.target.value;
               setActiveBranchId(newBranchId);
-              const firstWh = warehousesByBranch[newBranchId]?.[0]?.id ?? "";
-              setActiveWarehouseId(firstWh);
+              const firstWh = warehousesByBranch[newBranchId]?.[0]?.warehouseId ?? "";
+              setActiveWarehouseId(firstWh ? String(firstWh) : "");
             }}
           >
+            <option value="">{loadingBranches ? "Cargando..." : "Selecciona sucursal"}</option>
             {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={String(b.branchId)} value={String(b.branchId)}>{b.name}</option>
             ))}
           </select>
           <select
-            className="input w-full sm:w-auto"
+            className="input w-full sm:w-64"
             value={activeWarehouseId}
+            disabled={loadingWarehouses || !activeBranchId}
             onChange={(e) => setActiveWarehouseId(e.target.value)}
           >
+            <option value="">{loadingWarehouses ? "Cargando..." : "Selecciona almacén"}</option>
             {currentWarehouses.map((w) => (
-              <option key={w.id} value={w.id}>{w.name}</option>
+              <option key={String(w.warehouseId)} value={String(w.warehouseId)}>{w.warehouseName}</option>
             ))}
           </select>
         </div>
@@ -339,7 +1136,15 @@ export default function InventoryProductsPage() {
         <div className="space-y-4">
           {/* Grid de productos */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((p) => (
+            {loadingProducts && products.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-[hsl(var(--muted-foreground))]">
+                Cargando productos...
+              </div>
+            ) : !loadingProducts && products.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-[hsl(var(--muted-foreground))]">
+                {activeWarehouseId ? "No hay productos en este almacén" : "Selecciona un almacén para ver productos"}
+              </div>
+            ) : products.map((p) => (
               <button key={p.id} className="card text-left" onClick={() => setOpenProductId(p.id)}>
                 <div className="card-inner space-y-3">
                   <div className="flex items-start justify-between">
@@ -357,7 +1162,7 @@ export default function InventoryProductsPage() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <div className="text-[hsl(var(--muted-foreground))]">Estanterías</div>
-                    <div className="font-medium">{p.shelves.join(", ")}</div>
+                    <div className="font-medium">{p.shelves.length > 0 ? p.shelves.join(", ") : "-"}</div>
                   </div>
                 </div>
               </button>
@@ -365,53 +1170,73 @@ export default function InventoryProductsPage() {
           </div>
 
           {/* Modal de detalle de producto */}
-          <Modal open={!!openProduct} onClose={() => setOpenProductId(null)} title={openProduct ? openProduct.name : ""}>
+          <Modal open={!!openProduct} onClose={() => { setOpenProductId(null); setProductDetails(null); }} title={openProduct ? openProduct.name : ""}>
             {openProduct && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-[hsl(var(--muted-foreground))]">Costo promedio</div>
-                    <div className="font-medium">{formatCurrency(openProduct.averageCost)}</div>
+                {loadingProductDetails ? (
+                  <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
+                    Cargando detalles...
                   </div>
-                  <div>
-                    <div className="text-xs text-[hsl(var(--muted-foreground))]">Cantidad total</div>
-                    <div className="font-medium">{openProduct.quantity}</div>
-                  </div>
-                </div>
-
-                {openProduct.type === "lote" && (
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium">Lotes</div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {(openProduct.batches ?? []).map((l) => (
-                        <div key={l.id} className="card">
-                          <div className="card-inner space-y-1">
-                            <div className="font-medium">{l.name}</div>
-                            <div className="text-sm text-[hsl(var(--muted-foreground))]">Cantidad: {l.qty}</div>
-                            <div className="text-xs text-[hsl(var(--muted-foreground))]">Compra: {l.purchaseDate}</div>
-                            <div className="text-xs text-[hsl(var(--muted-foreground))]">Vence: {l.expiryDate}</div>
-                            <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería: {l.shelf}</div>
-                          </div>
-                        </div>
-                      ))}
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-xs text-[hsl(var(--muted-foreground))]">Costo promedio</div>
+                        <div className="font-medium">{formatCurrency(openProduct.averageCost)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-[hsl(var(--muted-foreground))]">Cantidad total</div>
+                        <div className="font-medium">{openProduct.quantity}</div>
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {openProduct.type === "serie" && (
-                  <div className="space-y-3">
-                    <div className="text-sm font-medium">Series</div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {(openProduct.series ?? []).map((s) => (
-                        <div key={s.id} className="card">
-                          <div className="card-inner space-y-1">
-                            <div className="font-medium">{s.name}</div>
-                            <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería: {s.shelf}</div>
+                    {openProduct.type === "lote" && (
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium">Lotes</div>
+                        {openProduct.batches && openProduct.batches.length > 0 ? (
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {openProduct.batches.map((l) => (
+                              <div key={l.id} className="card">
+                                <div className="card-inner space-y-1">
+                                  <div className="font-medium">{l.name}</div>
+                                  <div className="text-sm text-[hsl(var(--muted-foreground))]">Cantidad: {l.qty}</div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Compra: {l.purchaseDate}</div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Vence: {l.expiryDate}</div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería: {l.shelf}</div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        ) : (
+                          <div className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
+                            No hay lotes registrados
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {openProduct.type === "serie" && (
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium">Series</div>
+                        {openProduct.series && openProduct.series.length > 0 ? (
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            {openProduct.series.map((s) => (
+                              <div key={s.id} className="card">
+                                <div className="card-inner space-y-1">
+                                  <div className="font-medium">{s.name}</div>
+                                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería: {s.shelf}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-[hsl(var(--muted-foreground))] text-center py-4">
+                            No hay series registradas
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -457,26 +1282,42 @@ export default function InventoryProductsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[hsl(var(--border))]">
-                      {movementsMock.map((movement) => (
-                        <tr key={movement.id} className="hover:bg-[hsl(var(--muted))]/30 transition-colors">
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">
-                            <Tag>
-                              {movement.type === "agregar" ? "Agregar" : 
-                               movement.type === "quitar" ? "Quitar" :
-                               movement.type === "transferir" ? "Transferir" : "Ajustar"}
-                            </Tag>
-                          </td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.productName}</td>
-                          <td className={`px-3 py-2 border-r border-[hsl(var(--border))] font-medium ${movement.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {movement.quantity >= 0 ? '+' : ''}{movement.quantity}
-                          </td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.date}</td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.user}</td>
-                          <td className="px-3 py-2">
-                            {movement.orderRef || movement.destination || movement.reason || '-'}
+                      {loadingMovements ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-center text-[hsl(var(--muted-foreground))]">
+                            Cargando movimientos...
                           </td>
                         </tr>
-                      ))}
+                      ) : recentMovements.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-center text-[hsl(var(--muted-foreground))]">
+                            {activeWarehouseId ? "No hay movimientos recientes" : "Selecciona un almacén para ver movimientos"}
+                          </td>
+                        </tr>
+                      ) : (
+                        recentMovements.map((movement, idx) => {
+                          const tipo = movement.tipo.toLowerCase();
+                          const isPositive = tipo === "agregar" || tipo === "transferir";
+                          return (
+                            <tr key={idx} className="hover:bg-[hsl(var(--muted))]/30 transition-colors">
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">
+                                <Tag>
+                                  {movement.tipo}
+                                </Tag>
+                              </td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.producto}</td>
+                              <td className={`px-3 py-2 border-r border-[hsl(var(--border))] font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                {isPositive ? '+' : ''}{movement.cantidad}
+                              </td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.fecha}</td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.usuario}</td>
+                              <td className="px-3 py-2">
+                                {movement.referencia || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -510,7 +1351,7 @@ export default function InventoryProductsPage() {
                   >
                     Cancelar
                   </button>
-                  <button className="btn-primary">Guardar</button>
+                  <button className="btn-primary" onClick={handleSubmitMovement}>Guardar</button>
                 </div>
               }
             >
@@ -607,41 +1448,44 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(p.id);
-                                    setProductSearchTerm(p.name);
-                                    setIsProductDropdownOpen(false);
-                                    setBatchRows([]);
-                                    setSeriesRows([]);
-                                    setBatchTotalQty("");
-                                    setSeriesTotalQty("");
-                                    setSimpleQty("");
-                                    setSimpleShelf("");
-                                  }}
-                                >
-                                  {p.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setBatchRows([]);
+                                      setSeriesRows([]);
+                                      setBatchTotalQty("");
+                                      setSeriesTotalQty("");
+                                      setSimpleQty("");
+                                      setSimpleShelf("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
                         {selectedProductIdForMovement && (
                           <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                            Seleccionado: {selectedProduct?.name}
+                            {loadingSelectedProductDetails ? "Cargando detalles..." : `Seleccionado: ${selectedProduct?.name}`}
                           </div>
                         )}
                       </div>
@@ -702,7 +1546,7 @@ export default function InventoryProductsPage() {
                                         qty: "",
                                         expiryDate: purchaseGeneralExpiry,
                                         purchaseDate: purchaseDateTop,
-                                        shelf: selectedProduct.shelves[0] ?? "",
+                                        shelf: locations.length > 0 ? locations[0].code : "",
                                       },
                                     ]);
                                   }}
@@ -780,7 +1624,8 @@ export default function InventoryProductsPage() {
                                                 setBatchRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                               }}
                                             >
-                                              {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                              <option value="">Selecciona estantería</option>
+                                              {locations.length > 0 ? locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                             </select>
                                           </td>
                                           <td className="p-0">
@@ -820,7 +1665,7 @@ export default function InventoryProductsPage() {
                                     const next = [...prev];
                                     if (n > next.length) {
                                       for (let i = next.length; i < n; i++) {
-                                        next.push({ name: "", shelf: selectedProduct.shelves[0] ?? "" });
+                                        next.push({ name: "", shelf: locations.length > 0 ? locations[0].code : "" });
                                       }
                                     } else if (n < next.length) {
                                       next.length = n;
@@ -881,7 +1726,8 @@ export default function InventoryProductsPage() {
                                                 });
                                               }}
                                             >
-                                              {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                              <option value="">Selecciona estantería</option>
+                                              {locations.length > 0 ? locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                             </select>
                                           </td>
                                           <td className="p-0">
@@ -929,7 +1775,7 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setSimpleShelf(e.target.value)}
                               >
                                 <option value="">Selecciona estantería</option>
-                                {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                               </select>
                             </div>
                           </div>
@@ -1038,38 +1884,41 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(p.id);
-                                    setProductSearchTerm(p.name);
-                                    setIsProductDropdownOpen(false);
-                                    setRemoveBatchRows([]);
-                                    setRemoveSelectedSeries([]);
-                                    setRemoveSimpleQty("");
-                                  }}
-                                >
-                                  {p.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setRemoveBatchRows([]);
+                                      setRemoveSelectedSeries([]);
+                                      setRemoveSimpleQty("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
                         {selectedProductIdForMovement && (
                           <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                            Seleccionado: {selectedProduct?.name}
+                            {loadingSelectedProductDetails ? "Cargando detalles..." : `Seleccionado: ${selectedProduct?.name}`}
                           </div>
                         )}
                       </div>
@@ -1274,15 +2123,16 @@ export default function InventoryProductsPage() {
                           <select
                             className="input"
                             value={transferDestinationBranch}
+                            disabled={loadingBranches}
                             onChange={(e) => {
                               const branchId = e.target.value;
                               setTransferDestinationBranch(branchId);
-                              const firstWh = warehousesByBranch[branchId]?.[0]?.id ?? "";
-                              setTransferDestinationWarehouse(firstWh);
                             }}
                           >
-                            <option value="">Selecciona sucursal</option>
-                            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            <option value="">{loadingBranches ? "Cargando..." : "Selecciona sucursal"}</option>
+                            {branches.map(b => (
+                              <option key={String(b.branchId)} value={String(b.branchId)}>{b.name}</option>
+                            ))}
                           </select>
                         </div>
                         <div className="space-y-1">
@@ -1290,11 +2140,12 @@ export default function InventoryProductsPage() {
                           <select
                             className="input"
                             value={transferDestinationWarehouse}
+                            disabled={loadingTransferWarehouses || !transferDestinationBranch}
                             onChange={(e) => setTransferDestinationWarehouse(e.target.value)}
                           >
-                            <option value="">Selecciona almacén</option>
-                            {(warehousesByBranch[transferDestinationBranch] ?? []).map(w => (
-                              <option key={w.id} value={w.id}>{w.name}</option>
+                            <option value="">{loadingTransferWarehouses ? "Cargando..." : "Selecciona almacén"}</option>
+                            {transferDestinationWarehouses.map(w => (
+                              <option key={String(w.warehouseId)} value={String(w.warehouseId)}>{w.warehouseName}</option>
                             ))}
                           </select>
                         </div>
@@ -1335,39 +2186,42 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(p.id);
-                                    setProductSearchTerm(p.name);
-                                    setIsProductDropdownOpen(false);
-                                    setTransferBatchRows([]);
-                                    setTransferSeriesRows([]);
-                                    setTransferSimpleQty("");
-                                    setTransferSimpleShelf("");
-                                  }}
-                                >
-                                  {p.name}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setTransferBatchRows([]);
+                                      setTransferSeriesRows([]);
+                                      setTransferSimpleQty("");
+                                      setTransferSimpleShelf("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
                         {selectedProductIdForMovement && (
                           <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                            Seleccionado: {selectedProduct?.name}
+                            {loadingSelectedProductDetails ? "Cargando detalles..." : `Seleccionado: ${selectedProduct?.name}`}
                           </div>
                         )}
                       </div>
@@ -1393,7 +2247,7 @@ export default function InventoryProductsPage() {
                                       onClick={() => {
                                         setTransferBatchRows((prev) => [
                                           ...prev,
-                                          { batchId: "", qty: "", shelf: selectedProduct.shelves[0] ?? "" },
+                                          { batchId: "", qty: "", shelf: locations.length > 0 ? locations[0].code : "" },
                                         ]);
                                       }}
                                     >
@@ -1468,7 +2322,8 @@ export default function InventoryProductsPage() {
                                                     setTransferBatchRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                                   }}
                                                 >
-                                                  {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                                  <option value="">Selecciona estantería</option>
+                                                  {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                                 </select>
                                               </td>
                                               <td className="p-0">
@@ -1502,7 +2357,7 @@ export default function InventoryProductsPage() {
                                   onClick={() => {
                                     setTransferSeriesRows((prev) => [
                                       ...prev,
-                                      { seriesId: "", shelf: selectedProduct.shelves[0] ?? "" },
+                                      { seriesId: "", shelf: transferDestinationLocations.length > 0 ? transferDestinationLocations[0].code : "" },
                                     ]);
                                   }}
                                 >
@@ -1546,7 +2401,8 @@ export default function InventoryProductsPage() {
                                                 setTransferSeriesRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                               }}
                                             >
-                                              {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                              <option value="">Selecciona estantería</option>
+                                              {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                             </select>
                                           </td>
                                           <td className="p-0">
@@ -1588,7 +2444,7 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setTransferSimpleShelf(e.target.value)}
                               >
                                 <option value="">Selecciona estantería</option>
-                                {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                               </select>
                             </div>
                           </div>
@@ -1654,46 +2510,90 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(p.id);
-                                    setProductSearchTerm(p.name);
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={async () => {
+                                    setSelectedProductIdForMovement(String(p.productId));
+                                    setProductSearchTerm(p.productName);
                                     setIsProductDropdownOpen(false);
-                                    // Inicializar con todos los lotes/series existentes
-                                    if (p.type === "lote" && p.batches) {
-                                      setAdjustBatchRows(p.batches.map(b => ({ batchId: b.id, qty: b.qty, shelf: b.shelf })));
-                                    } else if (p.type === "serie" && p.series) {
-                                      setAdjustSeriesRows(p.series.map(s => ({ seriesId: s.id, shelf: s.shelf })));
-                                    } else {
-                                      setAdjustBatchRows([]);
-                                      setAdjustSeriesRows([]);
+                                    // Cargar detalles del producto para inicializar lotes/series
+                                    if (activeWarehouseId) {
+                                      try {
+                                        const result = await ApiService.getWarehouseProductDetails(
+                                          parseInt(activeWarehouseId),
+                                          p.productId
+                                        );
+                                        if (result.ok) {
+                                          if (p.isBatchControlled && result.data.batches.length > 0) {
+                                            const batchRows = result.data.batches.map(b => ({ 
+                                              batchId: String(b.batchId), 
+                                              qty: b.quantity, 
+                                              shelf: b.lastLocation || "" 
+                                            }));
+                                            setAdjustBatchRows(batchRows);
+                                            // Guardar cantidades originales
+                                            const originalQty: Record<string, number> = {};
+                                            batchRows.forEach(row => {
+                                              originalQty[row.batchId] = typeof row.qty === "number" ? row.qty : 0;
+                                            });
+                                            setOriginalBatchQuantities(originalQty);
+                                          } else if (p.isSerialized && result.data.serials.length > 0) {
+                                            // COMENTADO TEMPORALMENTE: Productos tipo serial no se muestran en ajustar
+                                            // const seriesRows = result.data.serials.map(s => ({ 
+                                            //   seriesId: String(s.serialId), 
+                                            //   shelf: s.lastLocation || "" 
+                                            // }));
+                                            // setAdjustSeriesRows(seriesRows);
+                                            // // Guardar estanterías originales
+                                            // const originalShelves: Record<string, string> = {};
+                                            // seriesRows.forEach(row => {
+                                            //   originalShelves[row.seriesId] = row.shelf;
+                                            // });
+                                            // setOriginalSeriesShelves(originalShelves);
+                                            setAdjustBatchRows([]);
+                                            setAdjustSeriesRows([]);
+                                          } else {
+                                            setAdjustBatchRows([]);
+                                            setAdjustSeriesRows([]);
+                                            // Guardar cantidad original del producto normal e inicializar el input
+                                            const warehouseProduct = warehouseProducts.find(wp => wp.productId === p.productId);
+                                            const currentQty = warehouseProduct?.quantity || 0;
+                                            setOriginalSimpleQuantity(currentQty);
+                                            setAdjustSimpleQty(currentQty);
+                                            setOriginalSimpleShelf("");
+                                            setAdjustSimpleShelf("");
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error loading product details for adjust:', error);
+                                      }
                                     }
-                                    setAdjustSimpleQty("");
-                                    setAdjustSimpleShelf("");
                                   }}
                                 >
-                                  {p.name}
+                                  {p.productName}
                                 </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
                         {selectedProductIdForMovement && (
                           <div className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                            Seleccionado: {selectedProduct?.name}
+                            {loadingSelectedProductDetails ? "Cargando detalles..." : `Seleccionado: ${selectedProduct?.name}`}
                           </div>
                         )}
                       </div>
@@ -1715,7 +2615,7 @@ export default function InventoryProductsPage() {
                                       <tr>
                                         <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Lote</th>
                                         <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Cantidad</th>
-                                        <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Estantería</th>
+                                        {/* <th className="px-3 py-2.5 text-left font-semibold text-[hsl(var(--foreground))] border-r border-[hsl(var(--border))] whitespace-nowrap">Estantería</th> */}
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[hsl(var(--border))]">
@@ -1738,7 +2638,7 @@ export default function InventoryProductsPage() {
                                                 }}
                                               />
                                             </td>
-                                            <td className="p-0 border-r border-[hsl(var(--border))]">
+                                            {/* <td className="p-0 border-r border-[hsl(var(--border))]">
                                               <select
                                                 className="input border-0 rounded-none w-full focus:ring-2 focus:ring-[hsl(var(--primary))] focus:outline-none px-3 py-2"
                                                 value={row.shelf}
@@ -1747,9 +2647,9 @@ export default function InventoryProductsPage() {
                                                   setAdjustBatchRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                                 }}
                                               >
-                                                {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                                {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                                               </select>
-                                            </td>
+                                            </td> */}
                                           </tr>
                                         );
                                       })}
@@ -1761,7 +2661,7 @@ export default function InventoryProductsPage() {
                           </div>
                         )}
 
-                        {selectedProduct.type === "serie" && (
+                        {/* {selectedProduct.type === "serie" && (
                           <div className="space-y-3">
                             <div className="space-y-2">
                               <div className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Series a ajustar</div>
@@ -1791,7 +2691,7 @@ export default function InventoryProductsPage() {
                                                   setAdjustSeriesRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                                 }}
                                               >
-                                                {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                                {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                                               </select>
                                             </td>
                                           </tr>
@@ -1803,7 +2703,7 @@ export default function InventoryProductsPage() {
                               </div>
                             </div>
                           </div>
-                        )}
+                        )} */}
 
                         {selectedProduct.type === "ninguno" && (
                           <div className="grid sm:grid-cols-2 gap-3">
@@ -1817,7 +2717,7 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setAdjustSimpleQty(e.target.value === "" ? "" : Number(e.target.value))}
                               />
                             </div>
-                            <div className="space-y-1">
+                            {/* <div className="space-y-1">
                               <div className="text-xs text-[hsl(var(--muted-foreground))]">Estantería</div>
                               <select
                                 className="input"
@@ -1825,9 +2725,9 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setAdjustSimpleShelf(e.target.value)}
                               >
                                 <option value="">Selecciona estantería</option>
-                                {selectedProduct.shelves.map(s => <option key={s} value={s}>{s}</option>)}
+                                {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
                               </select>
-                            </div>
+                            </div> */}
                           </div>
                         )}
                       </div>

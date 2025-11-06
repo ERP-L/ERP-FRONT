@@ -1,27 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ApiService } from "../../core/api-service";
-import type { BranchListItem, WarehouseListItem } from "../../core/api-types";
+import type { BranchListItem, WarehouseListItem, LocationResponse } from "../../core/api-types";
 
 type WarehouseRow = WarehouseListItem;
-
-// Datos hardcodeados de estanterías por almacén
-const SHELVES_DATA: Record<string, Array<{id: string, codeName: string}>> = {
-  "ALM001": [
-    { id: "1", codeName: "EST-A1" },
-    { id: "2", codeName: "EST-A2" },
-    { id: "3", codeName: "EST-A3" }
-  ],
-  "ALM002": [
-    { id: "4", codeName: "EST-B1" },
-    { id: "5", codeName: "EST-B2" }
-  ],
-  "ALM003": [
-    { id: "6", codeName: "EST-C1" },
-    { id: "7", codeName: "EST-C2" },
-    { id: "8", codeName: "EST-C3" },
-    { id: "9", codeName: "EST-C4" }
-  ]
-};
 
 export default function WarehousePage() {
 
@@ -52,7 +33,10 @@ export default function WarehousePage() {
   // Modal ver almacén
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseRow | null>(null);
-  const [shelves, setShelves] = useState<Array<{id: string, codeName: string}>>([]);
+  const [shelves, setShelves] = useState<LocationResponse[]>([]);
+  const [loadingShelves, setLoadingShelves] = useState(false);
+  const [shelfError, setShelfError] = useState<string | null>(null);
+  const [newShelfCode, setNewShelfCode] = useState("");
 
   // editar vs crear
   const [editing, setEditing] = useState(false);
@@ -159,26 +143,67 @@ export default function WarehousePage() {
     setOpen(true);
   }
 
-  function openWarehouseView(warehouse: WarehouseRow) {
+  async function openWarehouseView(warehouse: WarehouseRow) {
     setSelectedWarehouse(warehouse);
-    setShelves(SHELVES_DATA[warehouse.warehouseCode] || []);
     setViewModalOpen(true);
+    setShelfError(null);
+    setNewShelfCode("");
+    setLoadingShelves(true);
+    
+    try {
+      const result = await ApiService.getLocationsByWarehouse(warehouse.warehouseId, true);
+      if (result.ok) {
+        setShelves(result.data);
+      } else {
+        setShelfError(result.error);
+        setShelves([]);
+      }
+    } catch (error) {
+      console.error('Error loading shelves:', error);
+      setShelfError('Error al cargar estanterías');
+      setShelves([]);
+    } finally {
+      setLoadingShelves(false);
+    }
   }
 
-  function addShelf(codeName: string) {
-    if (!codeName.trim()) return;
-    const newId = String(Date.now());
-    const newShelf = { id: newId, codeName: codeName.trim() };
-    setShelves(prev => [...prev, newShelf]);
+  async function addShelf(codeName: string) {
+    if (!codeName.trim() || !selectedWarehouse) return;
+    
+    setShelfError(null);
+    setLoadingShelves(true);
+    
+    try {
+      const result = await ApiService.createLocation(selectedWarehouse.warehouseId, {
+        code: codeName.trim(),
+        allowStock: true,
+      });
+      
+      if (result.ok) {
+        setShelves(prev => [...prev, result.data]);
+        setNewShelfCode(""); // Limpiar input solo si se crea exitosamente
+      } else {
+        setShelfError(result.error);
+      }
+    } catch (error) {
+      console.error('Error creating shelf:', error);
+      setShelfError('Error al crear estantería');
+    } finally {
+      setLoadingShelves(false);
+    }
   }
 
-  function removeShelf(id: string) {
-    setShelves(prev => prev.filter(shelf => shelf.id !== id));
+  function removeShelf(locationId: number) {
+    // TODO: Implementar endpoint de eliminación cuando esté disponible
+    // Por ahora solo eliminamos del estado local
+    setShelves(prev => prev.filter(shelf => shelf.locationId !== locationId));
   }
 
-  function updateShelf(id: string, field: 'id' | 'codeName', value: string) {
+  function updateShelf(locationId: number, value: string) {
+    // TODO: Implementar endpoint de actualización cuando esté disponible
+    // Por ahora solo actualizamos el estado local
     setShelves(prev => prev.map(shelf => 
-      shelf.id === id ? { ...shelf, [field]: value } : shelf
+      shelf.locationId === locationId ? { ...shelf, code: value } : shelf
     ));
   }
 
@@ -252,7 +277,6 @@ export default function WarehousePage() {
           </div>
         )}
         {filtered.map((w) => {
-          const shelvesCount = SHELVES_DATA[w.warehouseCode]?.length || 0;
           return (
             <div 
               key={`${w.branchId}:${w.warehouseCode}`} 
@@ -264,9 +288,6 @@ export default function WarehousePage() {
                   <div>
                     <h3 className="text-lg font-semibold text-[hsl(var(--foreground))]">{w.warehouseName}</h3>
                     <p className="text-sm text-[hsl(var(--muted-foreground))]">{w.warehouseCode}</p>
-                  </div>
-                  <div className="bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] px-3 py-1 rounded-full text-sm font-medium">
-                    {shelvesCount} estanterías
                   </div>
                 </div>
                 
@@ -433,35 +454,46 @@ export default function WarehousePage() {
               <div>
                 <h3 className="text-lg font-semibold text-[hsl(var(--foreground))] mb-4">Estanterías</h3>
                 
+                {shelfError && (
+                  <div className="text-sm text-red-600 bg-red-50 p-3 rounded-[var(--radius)] border border-red-200 mb-4">
+                    {shelfError}
+                  </div>
+                )}
+                
                 {/* Input para agregar estantería */}
                 <div className="flex gap-2 mb-4 items-center">
                   <input
                     className="input flex-1"
-                    placeholder="Escribe el nombre de la estantería"
+                    placeholder="Escribe el código de la estantería"
+                    value={newShelfCode}
+                    onChange={(e) => setNewShelfCode(e.target.value)}
+                    disabled={loadingShelves}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        addShelf(e.currentTarget.value);
-                        e.currentTarget.value = '';
+                      if (e.key === 'Enter' && !loadingShelves && newShelfCode.trim()) {
+                        addShelf(newShelfCode);
                       }
                     }}
                   />
                   <button 
                     className="btn-primary h-fit"
+                    disabled={loadingShelves || !newShelfCode.trim()}
                     onClick={() => {
-                      const input = document.querySelector('input[placeholder="Escribe el nombre de la estantería"]') as HTMLInputElement;
-                      if (input) {
-                        addShelf(input.value);
-                        input.value = '';
+                      if (newShelfCode.trim()) {
+                        addShelf(newShelfCode);
                       }
                     }}
                   >
-                    Crear
+                    {loadingShelves ? "Creando..." : "Crear"}
                   </button>
                 </div>
 
                 {/* Lista de estanterías */}
                 <div className="max-h-80 overflow-y-auto">
-                  {shelves.length === 0 ? (
+                  {loadingShelves && shelves.length === 0 ? (
+                    <div className="text-center py-8 text-[hsl(var(--muted-foreground))] bg-gray-50 rounded-[var(--radius)] border border-gray-200">
+                      Cargando estanterías...
+                    </div>
+                  ) : shelves.length === 0 ? (
                     <div className="text-center py-8 text-[hsl(var(--muted-foreground))] bg-gray-50 rounded-[var(--radius)] border border-gray-200">
                       No hay estanterías registradas
                     </div>
@@ -469,7 +501,7 @@ export default function WarehousePage() {
                     <div className="bg-white border border-gray-200 rounded-[var(--radius)] overflow-hidden">
                       {shelves.map((shelf, index) => (
                         <div 
-                          key={shelf.id} 
+                          key={shelf.locationId} 
                           className={`flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors ${
                             index !== shelves.length - 1 ? 'border-b border-gray-100' : ''
                           }`}
@@ -477,18 +509,19 @@ export default function WarehousePage() {
                           <div className="flex-1">
                             <input
                               className="w-full text-sm py-1 bg-transparent border-none focus:bg-white focus:border focus:border-gray-300 focus:rounded px-2 transition-all"
-                              value={shelf.codeName}
-                              onChange={(e) => updateShelf(shelf.id, 'codeName', e.target.value)}
-                              placeholder="Nombre de estantería"
+                              value={shelf.code}
+                              onChange={(e) => updateShelf(shelf.locationId, e.target.value)}
+                              placeholder="Código de estantería"
+                              disabled
                             />
                           </div>
                           <div className="flex items-center gap-1">
                             <button
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                               onClick={() => {
-                                const newName = prompt('Nuevo nombre:', shelf.codeName);
-                                if (newName && newName.trim()) {
-                                  updateShelf(shelf.id, 'codeName', newName.trim());
+                                const newCode = prompt('Nuevo código:', shelf.code);
+                                if (newCode && newCode.trim()) {
+                                  updateShelf(shelf.locationId, newCode.trim());
                                 }
                               }}
                               title="Modificar"
@@ -499,7 +532,7 @@ export default function WarehousePage() {
                             </button>
                             <button
                               className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                              onClick={() => removeShelf(shelf.id)}
+                              onClick={() => removeShelf(shelf.locationId)}
                               title="Eliminar"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
