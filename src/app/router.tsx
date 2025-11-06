@@ -1,4 +1,4 @@
-import React from "react";
+import { type ReactNode } from "react";
 import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 //import { useAppStore } from "./store";
 import AuthLayout from "../ui/layouts/AppLayout";
@@ -22,7 +22,7 @@ import AdditionalExpensesPage from "../ui/pages/AdditionalExpensesPage";
 import ExpenseSummaryPage from "../ui/pages/ExpenseSummaryPage";
 
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
+function RequireAuth({ children }: { children: ReactNode }) {
 //const { session } = useAppStore();
 // TEMP: Deshabilitar protección mientras se navega libremente
 // if (!session) return <Navigate to="/login" replace />;

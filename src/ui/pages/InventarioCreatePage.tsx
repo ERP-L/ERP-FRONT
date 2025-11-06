@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { container } from "../../app/di";
 
 type BranchLite = { id: string; name: string };
