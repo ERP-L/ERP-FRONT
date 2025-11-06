@@ -86,7 +86,7 @@ export type CreateMovementRequest = {
   lineMode: string;
   fromWarehouseId?: number;
   toWarehouseId?: number;
-  referenceNumber?: string;
+  referenceNumber?: string | null;
   movementDate: string; // ISO
   lines: MovementLineRequest[];
   autoCreateBatch?: boolean;

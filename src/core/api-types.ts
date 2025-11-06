@@ -190,3 +190,13 @@ export interface LocationResponse {
   allowStock: boolean;
   createdUtc: string;
 }
+
+// Recent movements API types
+export interface RecentMovementResponse {
+  tipo: string;
+  producto: string;
+  cantidad: number;
+  fecha: string;
+  usuario: string;
+  referencia: string;
+}

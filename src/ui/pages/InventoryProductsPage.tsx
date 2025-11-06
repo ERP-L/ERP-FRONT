@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { ApiService } from "../../core/api-service";
-import type { BranchListItem, WarehouseListItem, ProductListItem, LocationResponse } from "../../core/api-types";
+import type { BranchListItem, WarehouseListItem, ProductListItem, LocationResponse, RecentMovementResponse } from "../../core/api-types";
 import type { WarehouseProductStockItem, WarehouseProductDetailsResponse, CreateMovementRequest } from "../../core/auth-types";
 
 type ProductType = "lote" | "serie" | "ninguno";
@@ -78,11 +78,16 @@ export default function InventoryProductsPage() {
   const [productDetails, setProductDetails] = useState<WarehouseProductDetailsResponse | null>(null);
   const [loadingProductDetails, setLoadingProductDetails] = useState(false);
 
-  // Estado para lista completa de productos (para selectores)
-  const [allProducts, setAllProducts] = useState<ProductListItem[]>([]);
+  // Estado para lista completa de productos (para selectores en modales de movimientos)
+  const [modalProducts, setModalProducts] = useState<ProductListItem[]>([]);
+  const [loadingModalProducts, setLoadingModalProducts] = useState(false);
 
   // Estado para estanterías disponibles por almacén
   const [locations, setLocations] = useState<LocationResponse[]>([]);
+
+  // Estado para movimientos recientes
+  const [recentMovements, setRecentMovements] = useState<RecentMovementResponse[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(false);
 
   // Datos mock para notificaciones y órdenes (aún no integrados con API)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -132,14 +137,6 @@ export default function InventoryProductsPage() {
     { id: "so2", orderName: "OV-002", productName: "Laptop Pro 14", productId: "p1", qty: 1, totalAmount: 1200 },
   ];
 
-  // Mock data para movimientos
-  const movementsMock = [
-    { id: "m1", type: "agregar", productName: "Paracetamol 500mg", quantity: 60, date: "2025-01-15", user: "Juan Pérez", orderRef: "OC-10023" },
-    { id: "m2", type: "quitar", productName: "Laptop Pro 14", quantity: 1, date: "2025-01-14", user: "María García", orderRef: "OV-001" },
-    { id: "m3", type: "transferir", productName: "Café en grano 1kg", quantity: 10, date: "2025-01-13", user: "Carlos López", destination: "Sucursal Norte" },
-    { id: "m4", type: "ajustar", productName: "Paracetamol 500mg", quantity: -5, date: "2025-01-12", user: "Ana Martínez", reason: "Ajuste de inventario" },
-    { id: "m5", type: "agregar", productName: "Laptop Pro 14", quantity: 2, date: "2025-01-11", user: "Juan Pérez", orderRef: "OC-10024" },
-  ];
 
   // Estado UI
   const [activeBranchId, setActiveBranchId] = useState<string>("");
@@ -213,24 +210,6 @@ export default function InventoryProductsPage() {
     })();
   }, [activeBranchId]);
 
-  // Cargar lista completa de productos para selectores
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await ApiService.getProducts();
-        if (result.ok) {
-          setAllProducts(result.data);
-        } else {
-          console.error('Error loading all products:', result.error);
-          setAllProducts([]);
-        }
-      } catch (error) {
-        console.error('Error loading all products:', error);
-        setAllProducts([]);
-      }
-    })();
-  }, []);
-
   // Cargar estanterías cuando cambia el almacén
   useEffect(() => {
     if (!activeWarehouseId) {
@@ -250,6 +229,32 @@ export default function InventoryProductsPage() {
       } catch (error) {
         console.error('Error loading locations:', error);
         setLocations([]);
+      }
+    })();
+  }, [activeWarehouseId]);
+
+  // Cargar movimientos recientes cuando cambia el almacén
+  useEffect(() => {
+    if (!activeWarehouseId) {
+      setRecentMovements([]);
+      return;
+    }
+
+    (async () => {
+      setLoadingMovements(true);
+      try {
+        const result = await ApiService.getRecentMovements(parseInt(activeWarehouseId), 1, 20);
+        if (result.ok) {
+          setRecentMovements(result.data);
+        } else {
+          console.error('Error loading recent movements:', result.error);
+          setRecentMovements([]);
+        }
+      } catch (error) {
+        console.error('Error loading recent movements:', error);
+        setRecentMovements([]);
+      } finally {
+        setLoadingMovements(false);
       }
     })();
   }, [activeWarehouseId]);
@@ -320,6 +325,32 @@ export default function InventoryProductsPage() {
   // Modales de movimientos
   const [movementType, setMovementType] = useState<null | "agregar" | "quitar" | "transferir" | "ajustar">(null);
 
+  // Cargar productos para selectores en modales cuando se abre un modal de movimiento
+  useEffect(() => {
+    if (!movementType) {
+      setModalProducts([]);
+      return;
+    }
+
+    (async () => {
+      setLoadingModalProducts(true);
+      try {
+        const result = await ApiService.getProducts();
+        if (result.ok) {
+          setModalProducts(result.data);
+        } else {
+          console.error('Error loading modal products:', result.error);
+          setModalProducts([]);
+        }
+      } catch (error) {
+        console.error('Error loading modal products:', error);
+        setModalProducts([]);
+      } finally {
+        setLoadingModalProducts(false);
+      }
+    })();
+  }, [movementType]);
+
   // Selecciones para formularios
   const [selectedProductIdForMovement, setSelectedProductIdForMovement] = useState<string>("");
   const [productSearchTerm, setProductSearchTerm] = useState<string>("");
@@ -360,6 +391,7 @@ export default function InventoryProductsPage() {
   const [transferDestinationWarehouse, setTransferDestinationWarehouse] = useState<string>("");
   const [transferDestinationWarehouses, setTransferDestinationWarehouses] = useState<WarehouseListItem[]>([]);
   const [loadingTransferWarehouses, setLoadingTransferWarehouses] = useState(false);
+  const [transferDestinationLocations, setTransferDestinationLocations] = useState<LocationResponse[]>([]);
   const [transferBatchRows, setTransferBatchRows] = useState<Array<{ batchId: string; qty: number | ""; shelf: string }>>([]);
   const [transferSeriesRows, setTransferSeriesRows] = useState<Array<{ seriesId: string; shelf: string }>>([]);
   const [transferSimpleQty, setTransferSimpleQty] = useState<number | "">("");
@@ -398,12 +430,41 @@ export default function InventoryProductsPage() {
     })();
   }, [transferDestinationBranch]);
 
+  // Cargar estanterías del almacén destino cuando cambia el almacén destino en transferir
+  useEffect(() => {
+    if (!transferDestinationWarehouse) {
+      setTransferDestinationLocations([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const result = await ApiService.getLocationsByWarehouse(parseInt(transferDestinationWarehouse), true);
+        if (result.ok) {
+          setTransferDestinationLocations(result.data);
+        } else {
+          console.error('Error loading transfer destination locations:', result.error);
+          setTransferDestinationLocations([]);
+        }
+      } catch (error) {
+        console.error('Error loading transfer destination locations:', error);
+        setTransferDestinationLocations([]);
+      }
+    })();
+  }, [transferDestinationWarehouse]);
+
   // Estado formulario AJUSTAR
   const [adjustBatchRows, setAdjustBatchRows] = useState<Array<{ batchId: string; qty: number | ""; shelf: string }>>([]);
   const [adjustSeriesRows, setAdjustSeriesRows] = useState<Array<{ seriesId: string; shelf: string }>>([]);
   const [adjustSimpleQty, setAdjustSimpleQty] = useState<number | "">("");
   const [adjustSimpleShelf, setAdjustSimpleShelf] = useState<string>("");
   const [adjustReason, setAdjustReason] = useState<string>("");
+  
+  // Valores originales para calcular diferencias
+  const [originalBatchQuantities, setOriginalBatchQuantities] = useState<Record<string, number>>({});
+  const [originalSeriesShelves, setOriginalSeriesShelves] = useState<Record<string, string>>({});
+  const [originalSimpleQuantity, setOriginalSimpleQuantity] = useState<number>(0);
+  const [originalSimpleShelf, setOriginalSimpleShelf] = useState<string>("");
 
   // Función helper para obtener locationId desde código de estantería (como string)
   function getLocationIdFromCode(shelfCode: string): string | undefined {
@@ -435,7 +496,7 @@ export default function InventoryProductsPage() {
             movementType: "IN",
             lineMode: "SERIAL",
             movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
-            referenceNumber: purchaseOrderRef || "",
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
             toWarehouseId: parseInt(activeWarehouseId),
             autoCreateSerial: true,
             autoCreateLocation: true,
@@ -458,7 +519,7 @@ export default function InventoryProductsPage() {
             movementType: "IN",
             lineMode: "BATCH",
             movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
-            referenceNumber: purchaseOrderRef || "",
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
             toWarehouseId: parseInt(activeWarehouseId),
             autoCreateBatch: true,
             autoCreateLocation: true,
@@ -484,7 +545,7 @@ export default function InventoryProductsPage() {
             movementType: "IN",
             lineMode: "NORMAL",
             movementDate: new Date(purchaseDateTop || new Date()).toISOString(),
-            referenceNumber: purchaseOrderRef || "",
+            referenceNumber: purchaseOrderRef && purchaseOrderRef.trim() ? purchaseOrderRef.trim() : null,
             toWarehouseId: parseInt(activeWarehouseId),
             autoCreateLocation: true,
             lines: [{
@@ -504,7 +565,7 @@ export default function InventoryProductsPage() {
             movementType: "OUT",
             lineMode: "SERIAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: saleOrderRef || "",
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             autoCreateSerial: false,
             autoCreateLocation: false,
@@ -521,7 +582,7 @@ export default function InventoryProductsPage() {
             movementType: "OUT",
             lineMode: "BATCH",
             movementDate: new Date().toISOString(),
-            referenceNumber: saleOrderRef || "",
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             autoCreateBatch: false,
             autoCreateLocation: false,
@@ -538,7 +599,7 @@ export default function InventoryProductsPage() {
             movementType: "OUT",
             lineMode: "NORMAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: saleOrderRef || "",
+            referenceNumber: saleOrderRef && saleOrderRef.trim() ? saleOrderRef.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             lines: [{
               productId: parseInt(selectedProduct.id),
@@ -560,18 +621,21 @@ export default function InventoryProductsPage() {
             movementType: "TRF",
             lineMode: "SERIAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: transferReason || "",
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             toWarehouseId: parseInt(transferDestinationWarehouse),
             autoCreateSerial: false,
             autoCreateLocation: true,
-            lines: transferSeriesRows.map(row => ({
-              productId: parseInt(selectedProduct.id),
-              quantity: 1,
-              serialId: parseInt(row.seriesId),
-              locationCode: getLocationIdFromCode(row.shelf),
-              notes: transferReason || "",
-            })),
+            lines: transferSeriesRows.map(row => {
+              const location = transferDestinationLocations.find(l => l.code === row.shelf);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: 1,
+                serialId: parseInt(row.seriesId),
+                locationCode: location?.locationId ? String(location.locationId) : undefined,
+                notes: transferReason || "",
+              };
+            }),
           };
         } else if (selectedProduct.type === "lote") {
           // TRF BATCH
@@ -579,18 +643,21 @@ export default function InventoryProductsPage() {
             movementType: "TRF",
             lineMode: "BATCH",
             movementDate: new Date().toISOString(),
-            referenceNumber: transferReason || "",
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             toWarehouseId: parseInt(transferDestinationWarehouse),
             autoCreateBatch: false,
             autoCreateLocation: true,
-            lines: transferBatchRows.map(row => ({
-              productId: parseInt(selectedProduct.id),
-              quantity: typeof row.qty === "number" ? row.qty : 0,
-              batchId: parseInt(row.batchId),
-              locationCode: getLocationIdFromCode(row.shelf),
-              notes: transferReason || "",
-            })),
+            lines: transferBatchRows.map(row => {
+              const location = transferDestinationLocations.find(l => l.code === row.shelf);
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: typeof row.qty === "number" ? row.qty : 0,
+                batchId: parseInt(row.batchId),
+                locationCode: location?.locationId ? String(location.locationId) : undefined,
+                notes: transferReason || "",
+              };
+            }),
           };
         } else {
           // TRF NORMAL
@@ -598,7 +665,7 @@ export default function InventoryProductsPage() {
             movementType: "TRF",
             lineMode: "NORMAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: transferReason || "",
+            referenceNumber: transferReason && transferReason.trim() ? transferReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             toWarehouseId: parseInt(transferDestinationWarehouse),
             autoCreateLocation: true,
@@ -606,7 +673,10 @@ export default function InventoryProductsPage() {
               productId: parseInt(selectedProduct.id),
               quantity: typeof transferSimpleQty === "number" ? transferSimpleQty : 0,
               unitCost: selectedProduct.averageCost || 0,
-              locationCode: getLocationIdFromCode(transferSimpleShelf),
+              locationCode: (() => {
+                const location = transferDestinationLocations.find(l => l.code === transferSimpleShelf);
+                return location?.locationId ? String(location.locationId) : undefined;
+              })(),
               notes: transferReason || "",
             }],
           };
@@ -615,57 +685,83 @@ export default function InventoryProductsPage() {
         // ADJ
         if (selectedProduct.type === "serie") {
           // ADJ SERIAL
+          // Verificar si se cambió alguna estantería
+          const hasLocationChanged = adjustSeriesRows.some(row => {
+            const originalShelf = originalSeriesShelves[row.seriesId] || "";
+            return row.shelf !== originalShelf;
+          });
+
           movement = {
             movementType: "ADJ",
             lineMode: "SERIAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: adjustReason || "",
+            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             autoCreateSerial: false,
-            autoCreateLocation: false,
-            lines: adjustSeriesRows.map(row => ({
-              productId: parseInt(selectedProduct.id),
-              quantity: -1,
-              serialId: parseInt(row.seriesId),
-              notes: adjustReason || "",
-            })),
+            autoCreateLocation: !hasLocationChanged,
+            lines: adjustSeriesRows.map(row => {
+              return {
+                productId: parseInt(selectedProduct.id),
+                quantity: -1,
+                serialId: parseInt(row.seriesId),
+                locationCode: getLocationIdFromCode(row.shelf),
+                notes: adjustReason || "",
+              };
+            }),
           };
         } else if (selectedProduct.type === "lote") {
           // ADJ BATCH
+          // Verificar si se cambió alguna estantería o cantidad
+          const hasLocationChanged = adjustBatchRows.some(row => {
+            const batch = selectedProduct.batches?.find(b => b.id === row.batchId);
+            const originalShelf = batch?.shelf || "";
+            return row.shelf !== originalShelf;
+          });
+
           movement = {
             movementType: "ADJ",
             lineMode: "BATCH",
             movementDate: new Date().toISOString(),
-            referenceNumber: adjustReason || "",
+            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
             autoCreateBatch: false,
-            autoCreateLocation: false,
+            autoCreateLocation: !hasLocationChanged,
             lines: adjustBatchRows.map(row => {
-              const quantity = typeof row.qty === "number" ? row.qty : 0;
+              const originalQty = originalBatchQuantities[row.batchId] || 0;
+              const newQty = typeof row.qty === "number" ? row.qty : 0;
+              const quantityDiff = newQty - originalQty;
+              
               const totalQty = adjustBatchRows.reduce((sum, r) => sum + (typeof r.qty === "number" ? r.qty : 0), 0);
               const unitCostValue = calculateUnitCost(saleTotal, totalQty);
+              
               return {
                 productId: parseInt(selectedProduct.id),
-                quantity: quantity,
+                quantity: quantityDiff,
                 batchId: parseInt(row.batchId),
                 unitCost: unitCostValue,
+                locationCode: getLocationIdFromCode(row.shelf),
                 notes: adjustReason || "",
               };
             }),
           };
         } else {
           // ADJ NORMAL
-          const qty = typeof adjustSimpleQty === "number" ? adjustSimpleQty : 0;
+          const newQty = typeof adjustSimpleQty === "number" ? adjustSimpleQty : 0;
+          const quantityDiff = newQty - originalSimpleQuantity;
+          const locationChanged = adjustSimpleShelf !== originalSimpleShelf;
+          
           movement = {
             movementType: "ADJ",
             lineMode: "NORMAL",
             movementDate: new Date().toISOString(),
-            referenceNumber: adjustReason || "",
+            referenceNumber: adjustReason && adjustReason.trim() ? adjustReason.trim() : null,
             fromWarehouseId: parseInt(activeWarehouseId),
+            autoCreateLocation: !locationChanged,
             lines: [{
               productId: parseInt(selectedProduct.id),
-              quantity: qty,
-              unitCost: qty > 0 ? calculateUnitCost(saleTotal, qty) : undefined,
+              quantity: quantityDiff,
+              unitCost: newQty > 0 ? calculateUnitCost(saleTotal, newQty) : undefined,
+              locationCode: getLocationIdFromCode(adjustSimpleShelf),
               notes: adjustReason || "",
             }],
           };
@@ -687,6 +783,11 @@ export default function InventoryProductsPage() {
           });
           if (refreshResult.ok) {
             setWarehouseProducts(refreshResult.data);
+          }
+          // Refrescar movimientos recientes
+          const movementsResult = await ApiService.getRecentMovements(parseInt(activeWarehouseId), 1, 20);
+          if (movementsResult.ok) {
+            setRecentMovements(movementsResult.data);
           }
         }
         // Cerrar modal y resetear formularios
@@ -737,6 +838,7 @@ export default function InventoryProductsPage() {
     setTransferDestinationBranch("");
     setTransferDestinationWarehouse("");
     setTransferDestinationWarehouses([]);
+    setTransferDestinationLocations([]);
     setTransferBatchRows([]);
     setTransferSeriesRows([]);
     setTransferSimpleQty("");
@@ -752,6 +854,10 @@ export default function InventoryProductsPage() {
     setAdjustSimpleQty("");
     setAdjustSimpleShelf("");
     setAdjustReason("");
+    setOriginalBatchQuantities({});
+    setOriginalSeriesShelves({});
+    setOriginalSimpleQuantity(0);
+    setOriginalSimpleShelf("");
     setProductSearchTerm("");
     setIsProductDropdownOpen(false);
   }
@@ -771,19 +877,19 @@ export default function InventoryProductsPage() {
     }));
   }, [warehouseProducts]);
 
-  // Productos filtrados para selección (usar lista completa de productos)
+  // Productos filtrados para selección (usar productos de modales)
   const filteredProductsForSelection = useMemo(() => {
-    if (!allProducts || allProducts.length === 0) {
+    if (!modalProducts || modalProducts.length === 0) {
       return [];
     }
     if (!productSearchTerm || productSearchTerm.trim() === "") {
-      return allProducts;
+      return modalProducts;
     }
-    return allProducts.filter(p => 
+    return modalProducts.filter(p => 
       p.productName.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(productSearchTerm.toLowerCase())
     );
-  }, [productSearchTerm, allProducts]);
+  }, [productSearchTerm, modalProducts]);
 
   // Estado para detalles del producto seleccionado para movimientos
   const [selectedProductDetails, setSelectedProductDetails] = useState<WarehouseProductDetailsResponse | null>(null);
@@ -818,11 +924,11 @@ export default function InventoryProductsPage() {
     })();
   }, [selectedProductIdForMovement, activeWarehouseId]);
 
-  // Producto seleccionado para movimientos (usar lista completa de productos)
+  // Producto seleccionado para movimientos (usar productos de modales)
   const selectedProduct = useMemo(() => {
     if (!selectedProductIdForMovement) return null;
-    if (!allProducts || !Array.isArray(allProducts) || allProducts.length === 0) return null;
-    const p = allProducts.find(p => String(p.productId) === selectedProductIdForMovement);
+    if (!modalProducts || !Array.isArray(modalProducts) || modalProducts.length === 0) return null;
+    const p = modalProducts.find(p => String(p.productId) === selectedProductIdForMovement);
     if (!p) return null;
     // Obtener detalles del almacén si está disponible
     const warehouseProduct = warehouseProducts.find(wp => wp.productId === p.productId);
@@ -851,7 +957,7 @@ export default function InventoryProductsPage() {
           }))
         : [],
     };
-  }, [selectedProductIdForMovement, allProducts, warehouseProducts, selectedProductDetails]);
+  }, [selectedProductIdForMovement, modalProducts, warehouseProducts, selectedProductDetails]);
 
   // Producto abierto para ver detalles
   const openProduct = useMemo(() => {
@@ -1110,26 +1216,42 @@ export default function InventoryProductsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[hsl(var(--border))]">
-                      {movementsMock.map((movement) => (
-                        <tr key={movement.id} className="hover:bg-[hsl(var(--muted))]/30 transition-colors">
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">
-                            <Tag>
-                              {movement.type === "agregar" ? "Agregar" : 
-                               movement.type === "quitar" ? "Quitar" :
-                               movement.type === "transferir" ? "Transferir" : "Ajustar"}
-                            </Tag>
-                          </td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.productName}</td>
-                          <td className={`px-3 py-2 border-r border-[hsl(var(--border))] font-medium ${movement.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {movement.quantity >= 0 ? '+' : ''}{movement.quantity}
-                          </td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.date}</td>
-                          <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.user}</td>
-                          <td className="px-3 py-2">
-                            {movement.orderRef || movement.destination || movement.reason || '-'}
+                      {loadingMovements ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-center text-[hsl(var(--muted-foreground))]">
+                            Cargando movimientos...
                           </td>
                         </tr>
-                      ))}
+                      ) : recentMovements.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-center text-[hsl(var(--muted-foreground))]">
+                            {activeWarehouseId ? "No hay movimientos recientes" : "Selecciona un almacén para ver movimientos"}
+                          </td>
+                        </tr>
+                      ) : (
+                        recentMovements.map((movement, idx) => {
+                          const tipo = movement.tipo.toLowerCase();
+                          const isPositive = tipo === "agregar" || tipo === "transferir";
+                          return (
+                            <tr key={idx} className="hover:bg-[hsl(var(--muted))]/30 transition-colors">
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">
+                                <Tag>
+                                  {movement.tipo}
+                                </Tag>
+                              </td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.producto}</td>
+                              <td className={`px-3 py-2 border-r border-[hsl(var(--border))] font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                                {isPositive ? '+' : ''}{movement.cantidad}
+                              </td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.fecha}</td>
+                              <td className="px-3 py-2 border-r border-[hsl(var(--border))]">{movement.usuario}</td>
+                              <td className="px-3 py-2">
+                                {movement.referencia || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1260,35 +1382,38 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.productId}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(String(p.productId));
-                                    setProductSearchTerm(p.productName);
-                                    setIsProductDropdownOpen(false);
-                                    setBatchRows([]);
-                                    setSeriesRows([]);
-                                    setBatchTotalQty("");
-                                    setSeriesTotalQty("");
-                                    setSimpleQty("");
-                                    setSimpleShelf("");
-                                  }}
-                                >
-                                  {p.productName}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setBatchRows([]);
+                                      setSeriesRows([]);
+                                      setBatchTotalQty("");
+                                      setSeriesTotalQty("");
+                                      setSimpleQty("");
+                                      setSimpleShelf("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
@@ -1693,32 +1818,35 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.productId}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(String(p.productId));
-                                    setProductSearchTerm(p.productName);
-                                    setIsProductDropdownOpen(false);
-                                    setRemoveBatchRows([]);
-                                    setRemoveSelectedSeries([]);
-                                    setRemoveSimpleQty("");
-                                  }}
-                                >
-                                  {p.productName}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setRemoveBatchRows([]);
+                                      setRemoveSelectedSeries([]);
+                                      setRemoveSimpleQty("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
@@ -1992,33 +2120,36 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.productId}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={() => {
-                                    setSelectedProductIdForMovement(String(p.productId));
-                                    setProductSearchTerm(p.productName);
-                                    setIsProductDropdownOpen(false);
-                                    setTransferBatchRows([]);
-                                    setTransferSeriesRows([]);
-                                    setTransferSimpleQty("");
-                                    setTransferSimpleShelf("");
-                                  }}
-                                >
-                                  {p.productName}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={() => {
+                                      setSelectedProductIdForMovement(String(p.productId));
+                                      setProductSearchTerm(p.productName);
+                                      setIsProductDropdownOpen(false);
+                                      setTransferBatchRows([]);
+                                      setTransferSeriesRows([]);
+                                      setTransferSimpleQty("");
+                                      setTransferSimpleShelf("");
+                                    }}
+                                  >
+                                    {p.productName}
+                                  </button>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>
@@ -2125,7 +2256,8 @@ export default function InventoryProductsPage() {
                                                     setTransferBatchRows((prev) => prev.map((r, i) => i === idx ? { ...r, shelf: v } : r));
                                                   }}
                                                 >
-                                                  {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
+                                                  <option value="">Selecciona estantería</option>
+                                                  {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                                 </select>
                                               </td>
                                               <td className="p-0">
@@ -2159,7 +2291,7 @@ export default function InventoryProductsPage() {
                                   onClick={() => {
                                     setTransferSeriesRows((prev) => [
                                       ...prev,
-                                      { seriesId: "", shelf: locations.length > 0 ? locations[0].code : "" },
+                                      { seriesId: "", shelf: transferDestinationLocations.length > 0 ? transferDestinationLocations[0].code : "" },
                                     ]);
                                   }}
                                 >
@@ -2204,7 +2336,7 @@ export default function InventoryProductsPage() {
                                               }}
                                             >
                                               <option value="">Selecciona estantería</option>
-                                              {locations.length > 0 ? locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
+                                              {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                                             </select>
                                           </td>
                                           <td className="p-0">
@@ -2246,7 +2378,7 @@ export default function InventoryProductsPage() {
                                 onChange={(e) => setTransferSimpleShelf(e.target.value)}
                               >
                                 <option value="">Selecciona estantería</option>
-                                {locations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>)}
+                                {transferDestinationLocations.length > 0 ? transferDestinationLocations.map(l => <option key={l.locationId} value={l.code}>{l.code}</option>) : <option value="" disabled>No hay estanterías disponibles</option>}
                               </select>
                             </div>
                           </div>
@@ -2312,14 +2444,19 @@ export default function InventoryProductsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                           </div>
-                          {isProductDropdownOpen && filteredProductsForSelection.length > 0 && (
+                          {isProductDropdownOpen && (
                             <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg max-h-48 overflow-y-auto">
-                              {filteredProductsForSelection.map(p => (
-                                <button
-                                  key={p.productId}
-                                  type="button"
-                                  className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
-                                  onClick={async () => {
+                              {loadingModalProducts ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))] text-center">
+                                  Cargando productos...
+                                </div>
+                              ) : filteredProductsForSelection.length > 0 ? (
+                                filteredProductsForSelection.map(p => (
+                                  <button
+                                    key={p.productId}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-[hsl(var(--muted))] text-sm transition-colors"
+                                    onClick={async () => {
                                     setSelectedProductIdForMovement(String(p.productId));
                                     setProductSearchTerm(p.productName);
                                     setIsProductDropdownOpen(false);
@@ -2332,39 +2469,56 @@ export default function InventoryProductsPage() {
                                         );
                                         if (result.ok) {
                                           if (p.isBatchControlled && result.data.batches.length > 0) {
-                                            setAdjustBatchRows(result.data.batches.map(b => ({ 
+                                            const batchRows = result.data.batches.map(b => ({ 
                                               batchId: String(b.batchId), 
                                               qty: b.quantity, 
                                               shelf: b.lastLocation || "" 
-                                            })));
+                                            }));
+                                            setAdjustBatchRows(batchRows);
+                                            // Guardar cantidades originales
+                                            const originalQty: Record<string, number> = {};
+                                            batchRows.forEach(row => {
+                                              originalQty[row.batchId] = typeof row.qty === "number" ? row.qty : 0;
+                                            });
+                                            setOriginalBatchQuantities(originalQty);
                                           } else if (p.isSerialized && result.data.serials.length > 0) {
-                                            setAdjustSeriesRows(result.data.serials.map(s => ({ 
+                                            const seriesRows = result.data.serials.map(s => ({ 
                                               seriesId: String(s.serialId), 
                                               shelf: s.lastLocation || "" 
-                                            })));
+                                            }));
+                                            setAdjustSeriesRows(seriesRows);
+                                            // Guardar estanterías originales
+                                            const originalShelves: Record<string, string> = {};
+                                            seriesRows.forEach(row => {
+                                              originalShelves[row.seriesId] = row.shelf;
+                                            });
+                                            setOriginalSeriesShelves(originalShelves);
                                           } else {
                                             setAdjustBatchRows([]);
                                             setAdjustSeriesRows([]);
+                                            // Guardar cantidad original del producto normal e inicializar el input
+                                            const warehouseProduct = warehouseProducts.find(wp => wp.productId === p.productId);
+                                            const currentQty = warehouseProduct?.quantity || 0;
+                                            setOriginalSimpleQuantity(currentQty);
+                                            setAdjustSimpleQty(currentQty);
+                                            setOriginalSimpleShelf("");
+                                            setAdjustSimpleShelf("");
                                           }
                                         }
                                       } catch (error) {
                                         console.error('Error loading product details for adjust:', error);
                                       }
                                     }
-                                    setAdjustSimpleQty("");
-                                    setAdjustSimpleShelf("");
                                   }}
                                 >
                                   {p.productName}
                                 </button>
-                              ))}
-                            </div>
-                          )}
-                          {isProductDropdownOpen && filteredProductsForSelection.length === 0 && productSearchTerm.trim() !== "" && (
-                            <div className="absolute z-10 w-full mt-1 bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded shadow-lg">
-                              <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
-                                No se encontraron productos
-                              </div>
+                                ))
+                              ) : productSearchTerm.trim() !== "" ? (
+                                <div className="px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">
+                                  No se encontraron productos
+                                </div>
+                              ) : null}
                             </div>
                           )}
                         </div>

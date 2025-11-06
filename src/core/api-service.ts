@@ -1,4 +1,4 @@
-import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem, CreateLocationRequest, LocationResponse } from './api-types';
+import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem, CreateLocationRequest, LocationResponse, RecentMovementResponse } from './api-types';
 import { AuthService } from './auth-service';
 import type { WarehouseProductDetailsResponse, WarehouseProductDetailsParams, WarehouseProductStockItem, CreateMovementResponse, WarehouseProductListParams, CreateMovementRequest } from './auth-types';
 import { qs } from './auth-types';
@@ -415,6 +415,37 @@ export class ApiService {
         return { ok: true, data };
       } catch (e) {
         console.error('Error getWarehouseProductDetails:', e);
+        return { ok: false, error: 'Error de conexión' };
+      }
+    }
+
+    // Get recent movements
+    static async getRecentMovements(
+      warehouseId: number,
+      page: number = 1,
+      size: number = 20
+    ): Promise<{ ok: true; data: RecentMovementResponse[] } | { ok: false; error: string }> {
+      try {
+        const authHeader = AuthService.getAuthHeader();
+        const url = `${getApiBaseUrl()}/api/inventory/movements/recent?warehouseId=${warehouseId}&page=${page}&size=${size}`;
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'accept': '*/*',
+            ...authHeader,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          return { ok: false, error: errorData.message || 'Error al obtener movimientos recientes' };
+        }
+
+        const data: RecentMovementResponse[] = await response.json();
+        return { ok: true, data };
+      } catch (e) {
+        console.error('Error getRecentMovements:', e);
         return { ok: false, error: 'Error de conexión' };
       }
     }
