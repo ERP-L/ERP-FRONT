@@ -174,30 +174,3 @@ export interface ProductListItem {
   categoryName?: string;
   uomName?: string;
 }
-
-// Location (Estantería) API types
-export interface CreateLocationRequest {
-  code: string;
-  allowStock: boolean;
-}
-
-export interface CreateLocationResponse {
-  locationId: number;
-  warehouseId: number;
-  parentId: number | null;
-  parentCode: string | null;
-  code: string;
-  allowStock: boolean;
-  createdUtc: string;
-}
-
-// Location list types
-export interface LocationListItem {
-  locationId: number;
-  warehouseId: number;
-  parentId: number | null;
-  parentCode: string | null;
-  code: string;
-  allowStock: boolean;
-  createdUtc: string;
-}
