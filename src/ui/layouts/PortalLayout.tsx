@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAppStore } from "../../app/store";
-import { Home, Building2, Boxes, Package, Tags, ChevronDown, ChevronRight, Menu, X } from "lucide-react";
+import { Home, Building2, Boxes, Package, Tags, ChevronDown, ChevronRight, Menu, X, MapPin, Store, FileText } from "lucide-react";
 
 function SidebarLink({
   to,
@@ -19,7 +19,7 @@ function SidebarLink({
       to={to}
       onClick={onClick}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-4 py-3 rounded-[var(--radius)] text-sm font-medium transition-all duration-200 ${
+        `flex items-start gap-3 px-4 py-3 rounded-[var(--radius)] text-sm font-medium transition-all duration-200 ${
           isActive
             ? "bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))] shadow-sm border border-[hsl(var(--border))]"
             : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]"
@@ -27,8 +27,8 @@ function SidebarLink({
       }
       end
     >
-      {icon ? <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span> : null}
-      <span className="truncate">{children}</span>
+      {icon ? <span className="[&_svg]:h-4 [&_svg]:w-4 flex-shrink-0 mt-0.5">{icon}</span> : null}
+      <span className="break-words leading-relaxed flex-1 min-w-0">{children}</span>
     </NavLink>
   );
 }
@@ -50,11 +50,11 @@ function SidebarGroup({
     <div>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-4 py-3 rounded-[var(--radius)] text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] transition-all duration-200 w-full"
+        className="flex items-start gap-3 px-4 py-3 rounded-[var(--radius)] text-sm font-medium text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))] transition-all duration-200 w-full"
       >
-        {icon ? <span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span> : null}
-        <span className="truncate flex-1 text-left">{title}</span>
-        <span className="[&_svg]:h-4 [&_svg]:w-4">
+        {icon ? <span className="[&_svg]:h-4 [&_svg]:w-4 flex-shrink-0 mt-0.5">{icon}</span> : null}
+        <span className="break-words flex-1 text-left leading-relaxed min-w-0">{title}</span>
+        <span className="[&_svg]:h-4 [&_svg]:w-4 flex-shrink-0 mt-0.5">
           {isOpen ? <ChevronDown /> : <ChevronRight />}
         </span>
       </button>
@@ -123,6 +123,32 @@ export default function PortalLayout() {
   };
 
   return (
+    <>
+      <style>{`
+        .sidebar-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 10px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background: hsl(var(--muted-foreground) / 0.3);
+          border-radius: 10px;
+          transition: background 0.2s ease;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--muted-foreground) / 0.5);
+        }
+      `}</style>
     <div className="h-screen flex flex-col md:flex-row overflow-hidden">
       {/* Sidebar */}
       <aside className={`glass transition-all duration-300 ${sidebarCollapsed ? 'w-16' : 'w-64'} hidden md:flex flex-shrink-0 m-2 md:m-4 overflow-hidden`}>
@@ -163,28 +189,31 @@ export default function PortalLayout() {
 
             {/* Menú */}
             {!sidebarCollapsed && (
-              <nav className="space-y-1 flex-1 overflow-y-auto min-h-0 transition-all duration-300">
+              <nav className="space-y-1 flex-1 overflow-y-auto min-h-0 transition-all duration-300 sidebar-scroll">
                 <SidebarLink to="/app/home" icon={<Home />}>
                   Inicio
                 </SidebarLink>
 
-                <SidebarGroup title="Activos" icon={<Building2 />}>
+                <SidebarGroup title="Estructura" icon={<Building2 />}>
                   <SidebarLink to="/app/branches" icon={<Building2 />}>Sucursales</SidebarLink>
                   <SidebarLink to="/app/warehouses" icon={<Boxes />}>Almacenes</SidebarLink>
+                  <SidebarLink to="/app/areas" icon={<MapPin />}>Áreas</SidebarLink>
                 </SidebarGroup>
 
                 <SidebarGroup title="Inventario" icon={<Package />}>
                   <SidebarLink to="/app/products" icon={<Package />}>Catálogo de Productos</SidebarLink>
                   <SidebarLink to="/app/categories" icon={<Tags />}>Catálogo de Categorías</SidebarLink>
                   <SidebarLink to="/app/inventory-products" icon={<Package />}>Inventario de Productos</SidebarLink>
-                  <SidebarLink to="/app/inventory-assets" icon={<Building2 />}>Inventario de Activos</SidebarLink>
+                  {/*<SidebarLink to="/app/inventory-assets" icon={<Building2 />}>Inventario de Activos</SidebarLink>*/}
+                  <SidebarLink to="/app/suppliers" icon={<Store />}>Proveedores</SidebarLink>
                 </SidebarGroup>
 
                 <SidebarGroup title="Centro de Costos" icon={<Tags />}>
-                  <SidebarLink to="/app/purchase-orders-products" icon={<Package />}>Orden de Compra Productos</SidebarLink>
-                  <SidebarLink to="/app/purchase-orders-assets" icon={<Building2 />}>Orden de Compra Activos</SidebarLink>
-                  <SidebarLink to="/app/additional-expenses" icon={<Tags />}>Gastos Adicionales</SidebarLink>
-                  <SidebarLink to="/app/expense-summary" icon={<Tags />}>Resumen de Gastos</SidebarLink>
+                  <SidebarLink to="/app/purchase-order" icon={<Package />}>Orden de Compra</SidebarLink>
+                  <SidebarLink to="/app/invoicing" icon={<FileText />}>Facturación</SidebarLink>
+                  {/*<SidebarLink to="/app/purchase-orders-products" icon={<Package />}>(N) Orden de Compra Productos</SidebarLink>*/}
+                  {/*<SidebarLink to="/app/additional-expenses" icon={<Tags />}>(N) Gastos Adicionales</SidebarLink>*/}
+                  {/*<SidebarLink to="/app/expense-summary" icon={<Tags />}>(N) Resumen de Gastos</SidebarLink>*/}
                 </SidebarGroup>
               </nav>
             )}
@@ -250,25 +279,28 @@ export default function PortalLayout() {
                       <X className="h-5 w-5" />
                     </button>
                   </div>
-                  <nav className="space-y-1 flex-1 overflow-y-auto min-h-0">
+                  <nav className="space-y-1 flex-1 overflow-y-auto min-h-0 sidebar-scroll">
                     <SidebarLink to="/app/home" icon={<Home />} onClick={() => setMobileMenuOpen(false)}>
                       Inicio
                     </SidebarLink>
-                    <SidebarGroup title="Activos" icon={<Building2 />}>
+                    <SidebarGroup title="Estructura" icon={<Building2 />}>
                       <SidebarLink to="/app/branches" icon={<Building2 />} onClick={() => setMobileMenuOpen(false)}>Sucursales</SidebarLink>
                       <SidebarLink to="/app/warehouses" icon={<Boxes />} onClick={() => setMobileMenuOpen(false)}>Almacenes</SidebarLink>
+                      <SidebarLink to="/app/areas" icon={<MapPin />} onClick={() => setMobileMenuOpen(false)}>Áreas</SidebarLink>
                     </SidebarGroup>
                     <SidebarGroup title="Inventario" icon={<Package />}>
                       <SidebarLink to="/app/products" icon={<Package />} onClick={() => setMobileMenuOpen(false)}>Catálogo de Productos</SidebarLink>
                       <SidebarLink to="/app/categories" icon={<Tags />} onClick={() => setMobileMenuOpen(false)}>Catálogo de Categorías</SidebarLink>
                       <SidebarLink to="/app/inventory-products" icon={<Package />} onClick={() => setMobileMenuOpen(false)}>Inventario de Productos</SidebarLink>
-                      <SidebarLink to="/app/inventory-assets" icon={<Building2 />} onClick={() => setMobileMenuOpen(false)}>Inventario de Activos</SidebarLink>
+                     { /*<SidebarLink to="/app/inventory-assets" icon={<Building2 />} onClick={() => setMobileMenuOpen(false)}>Inventario de Activos</SidebarLink>*/}
+                      <SidebarLink to="/app/suppliers" icon={<Store />} onClick={() => setMobileMenuOpen(false)}>Proveedores</SidebarLink>
                     </SidebarGroup>
                     <SidebarGroup title="Centro de Costos" icon={<Tags />}>
-                      <SidebarLink to="/app/purchase-orders-products" icon={<Package />} onClick={() => setMobileMenuOpen(false)}>Orden de Compra Productos</SidebarLink>
-                      <SidebarLink to="/app/purchase-orders-assets" icon={<Building2 />} onClick={() => setMobileMenuOpen(false)}>Orden de Compra Activos</SidebarLink>
-                      <SidebarLink to="/app/additional-expenses" icon={<Tags />} onClick={() => setMobileMenuOpen(false)}>Gastos Adicionales</SidebarLink>
-                      <SidebarLink to="/app/expense-summary" icon={<Tags />} onClick={() => setMobileMenuOpen(false)}>Resumen de Gastos</SidebarLink>
+                      <SidebarLink to="/app/purchase-order" icon={<Package />} onClick={() => setMobileMenuOpen(false)}>Orden de Compra</SidebarLink>
+                      <SidebarLink to="/app/invoicing" icon={<FileText />} onClick={() => setMobileMenuOpen(false)}>Facturación</SidebarLink>
+                      {/*<SidebarLink to="/app/purchase-orders-products" icon={<Package />} onClick={() => setMobileMenuOpen(false)}>(N) Orden de Compra Productos</SidebarLink>
+                      <SidebarLink to="/app/additional-expenses" icon={<Tags />} onClick={() => setMobileMenuOpen(false)}>(N) Gastos Adicionales</SidebarLink>
+                      <SidebarLink to="/app/expense-summary" icon={<Tags />} onClick={() => setMobileMenuOpen(false)}>(N) Resumen de Gastos</SidebarLink>*/}
                     </SidebarGroup>
                   </nav>
                   <div className="mt-auto border-t border-[hsl(var(--border))] pt-3 flex-shrink-0">
@@ -294,5 +326,6 @@ export default function PortalLayout() {
           </div>
         </main>
     </div>
+    </>
   );
 }
