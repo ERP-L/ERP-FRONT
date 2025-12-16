@@ -6,7 +6,7 @@ export default function ProfilePage(){
       <h1 className="text-xl font-semibold">Perfil</h1>
       <div className="card card-inner">
         <div className="text-sm">Correo: <strong>{session?.email}</strong></div>
-        <div className="text-sm opacity-70">(Perfil de demo)</div>
+        <div className="text-sm opacity-70">(Perfil de juan)</div>
       </div>
     </div>
   );

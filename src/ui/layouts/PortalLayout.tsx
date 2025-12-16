@@ -223,7 +223,7 @@ export default function PortalLayout() {
               {sidebarCollapsed ? (
                 <div className="flex flex-col items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-xs font-semibold transition-all duration-300">
-                    {session?.email?.[0]?.toUpperCase() || "D"}
+                    {session?.email?.[0]?.toUpperCase() || "J"}
                   </div>
                   <ProfileMenu onLogout={handleLogout} />
                 </div>
@@ -231,10 +231,10 @@ export default function PortalLayout() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-9 w-9 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-sm font-semibold transition-all duration-300">
-                      {session?.email?.[0]?.toUpperCase() || "D"}
+                      {session?.email?.[0]?.toUpperCase() || "J"}
                     </div>
                     <div className="truncate text-sm text-[hsl(var(--muted-foreground))] transition-all duration-300">
-                      {session?.email ?? "demo"}
+                      {session?.email ?? "juan"}
                     </div>
                   </div>
                   <ProfileMenu onLogout={handleLogout} />
@@ -307,10 +307,10 @@ export default function PortalLayout() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="h-9 w-9 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] flex items-center justify-center text-sm font-semibold">
-                          {session?.email?.[0]?.toUpperCase() || "D"}
+                          {session?.email?.[0]?.toUpperCase() || "J"}
                         </div>
                         <div className="truncate text-sm text-[hsl(var(--muted-foreground))]">
-                          {session?.email ?? "demo"}
+                          {session?.email ?? "juan"}
                         </div>
                       </div>
                       <ProfileMenu onLogout={handleLogout} />
