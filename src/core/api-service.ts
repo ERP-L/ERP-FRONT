@@ -1,4 +1,4 @@
-import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem, CreateLocationRequest, LocationResponse, RecentMovementResponse } from './api-types';
+import type { CreateBranchRequest, CreateBranchResponse, CreateWarehouseRequest, CreateWarehouseResponse, BranchListItem, WarehouseListItem, CreateCategoryRequest, CreateCategoryResponse, CategoryHierarchyItem, ChangeParentResponse, UOMItem, CreateProductRequest, CreateProductResponse, ProductListItem, CreateLocationRequest, LocationResponse, RecentMovementResponse, CreateAreaRequest, AreaResponse, AreasListResponse, CreateCostCenterRequest, CostCenterResponse, CostCentersListResponse, CreateSupplierRequest, CreateSupplierResponse, SuppliersListResponse, SupplierProduct, PurchaseOrdersListResponse, CreatePurchaseOrderRequest, PurchaseOrderDetail, InvoiceListItem, CreateInvoiceRequest, InvoiceDetail } from './api-types';
 import { AuthService } from './auth-service';
 import type { WarehouseProductDetailsResponse, WarehouseProductDetailsParams, WarehouseProductStockItem, CreateMovementResponse, WarehouseProductListParams, CreateMovementRequest } from './auth-types';
 import { qs } from './auth-types';
@@ -449,5 +449,443 @@ export class ApiService {
         return { ok: false, error: 'Error de conexión' };
       }
     }
+
+  // Create area
+  static async createArea(areaData: CreateAreaRequest): Promise<{ ok: true; data: AreaResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/areas`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(areaData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al crear área' };
+      }
+
+      const data: AreaResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating area:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get areas by branch
+  static async getAreasByBranch(branchId: number, page: number = 1, pageSize: number = 20): Promise<{ ok: true; data: AreasListResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/branches/${branchId}/areas?page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener áreas' };
+      }
+
+      const data: AreasListResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting areas:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get area by id
+  static async getAreaById(areaId: number): Promise<{ ok: true; data: AreaResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/areas/${areaId}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener área' };
+      }
+
+      const data: AreaResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting area:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Create cost center
+  static async createCostCenter(costCenterData: CreateCostCenterRequest): Promise<{ ok: true; data: CostCenterResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/costcenters/costcenters`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(costCenterData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al crear centro de costos' };
+      }
+
+      const data: CostCenterResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating cost center:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get cost centers by area
+  static async getCostCentersByArea(areaId: number, page: number = 0, pageSize: number = 25): Promise<{ ok: true; data: CostCentersListResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/costcenters?areaId=${areaId}&page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener centros de costos' };
+      }
+
+      const data: CostCentersListResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting cost centers:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get cost centers by branch
+  static async getCostCentersByBranch(branchId: number, page: number = 0, pageSize: number = 25): Promise<{ ok: true; data: CostCentersListResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/costcenters?branchId=${branchId}&page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener centros de costos' };
+      }
+
+      const data: CostCentersListResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting cost centers by branch:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get cost center by id
+  static async getCostCenterById(costCenterId: number): Promise<{ ok: true; data: CostCenterResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/costcenters/${costCenterId}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener centro de costos' };
+      }
+
+      const data: CostCenterResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting cost center:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Create supplier
+  static async createSupplier(supplierData: CreateSupplierRequest): Promise<{ ok: true; data: CreateSupplierResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/inventoryR/suppliers`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(supplierData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al crear proveedor' };
+      }
+
+      const data: CreateSupplierResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get suppliers
+  static async getSuppliers(active: boolean = true, page: number = 1, pageSize: number = 20): Promise<{ ok: true; data: SuppliersListResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/inventoryR/suppliers?active=${active}&page=${page}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener proveedores' };
+      }
+
+      const data: SuppliersListResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting suppliers:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get supplier products
+  static async getSupplierProducts(supplierId: number): Promise<{ ok: true; data: SupplierProduct[] } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/inventoryR/suppliers/${supplierId}/products`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener productos del proveedor' };
+      }
+
+      const data: SupplierProduct[] = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting supplier products:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Assign products to supplier
+  static async assignProductsToSupplier(supplierId: number, productIds: number[]): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/inventoryR/suppliers/${supplierId}/products`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(productIds),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al asignar productos al proveedor' };
+      }
+
+      // La API puede devolver un array vacío o no devolver nada
+      await response.json().catch(() => ({}));
+      return { ok: true };
+    } catch (error) {
+      console.error('Error assigning products to supplier:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get purchase orders
+  static async getPurchaseOrders(costCenterId: number, pageNumber: number = 1, pageSize: number = 20): Promise<{ ok: true; data: PurchaseOrdersListResponse } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/purchase-orders?costCenterId=${costCenterId}&pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener órdenes de compra' };
+      }
+
+      const data: PurchaseOrdersListResponse = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting purchase orders:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Create purchase order
+  static async createPurchaseOrder(orderData: CreatePurchaseOrderRequest): Promise<{ ok: true; data: PurchaseOrderDetail } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/purchase-orders`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al crear orden de compra' };
+      }
+
+      const data: PurchaseOrderDetail = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating purchase order:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get purchase order details
+  static async getPurchaseOrderDetails(purchaseOrderId: number): Promise<{ ok: true; data: PurchaseOrderDetail } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/purchase-orders/${purchaseOrderId}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener detalles de la orden de compra' };
+      }
+
+      const data: PurchaseOrderDetail = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting purchase order details:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get invoices
+  static async getInvoices(costCenterId: number, pageNumber: number = 1, pageSize: number = 20): Promise<{ ok: true; data: InvoiceListItem[] } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/invoices?costCenterId=${costCenterId}&pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener facturas' };
+      }
+
+      const data: InvoiceListItem[] = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting invoices:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Create invoice
+  static async createInvoice(invoiceData: CreateInvoiceRequest): Promise<{ ok: true; data: InvoiceDetail } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/invoices`, {
+        method: 'POST',
+        headers: {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+          ...authHeader,
+        },
+        body: JSON.stringify(invoiceData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al crear factura' };
+      }
+
+      const data: InvoiceDetail = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
+
+  // Get invoice details
+  static async getInvoiceDetails(invoiceId: number): Promise<{ ok: true; data: InvoiceDetail } | { ok: false; error: string }> {
+    try {
+      const authHeader = AuthService.getAuthHeader();
+      const response = await fetch(`${getApiBaseUrl()}/api/finances/invoices/${invoiceId}`, {
+        method: 'GET',
+        headers: {
+          'accept': '*/*',
+          ...authHeader,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { ok: false, error: errorData.message || 'Error al obtener detalles de la factura' };
+      }
+
+      const data: InvoiceDetail = await response.json();
+      return { ok: true, data };
+    } catch (error) {
+      console.error('Error getting invoice details:', error);
+      return { ok: false, error: 'Error de conexión' };
+    }
+  }
   
 }

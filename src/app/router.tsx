@@ -16,6 +16,10 @@ import CategoryCreatePage from "../ui/pages/CategoryCreatePage";
 import ProfilePage from "../ui/pages/ProfilePage";
 import InventoryProductsPage from "../ui/pages/InventoryProductsPage";
 import InventoryAssetsPage from "../ui/pages/InventoryAssetsPage";
+import AreasPage from "../ui/pages/AreasPage";
+import SuppliersPage from "../ui/pages/SuppliersPage";
+import PurchaseOrderPage from "../ui/pages/PurchaseOrderPage";
+import InvoicingPage from "../ui/pages/InvoicingPage";
 import PurchaseOrdersProductsPage from "../ui/pages/PurchaseOrdersProductsPage";
 import PurchaseOrdersAssetsPage from "../ui/pages/PurchaseOrdersAssetsPage";
 import AdditionalExpensesPage from "../ui/pages/AdditionalExpensesPage";
@@ -48,11 +52,15 @@ element: <RequireAuth><PortalLayout /></RequireAuth>,
       { path: "/app/notifications", element: <NotificationsPage /> },
       { path: "/app/branches", element: <BranchCreatePage /> },
       { path: "/app/warehouses", element: <WarehouseCreatePage /> },
+      { path: "/app/areas", element: <AreasPage /> },
       { path: "/app/products", element: <ProductCreatePage /> },
       { path: "/app/categories", element: <CategoryCreatePage /> },
       { path: "/app/inventory", element: <InventarioCreatePage /> },
       { path: "/app/inventory-products", element: <InventoryProductsPage /> },
       { path: "/app/inventory-assets", element: <InventoryAssetsPage /> },
+      { path: "/app/suppliers", element: <SuppliersPage /> },
+      { path: "/app/purchase-order", element: <PurchaseOrderPage /> },
+      { path: "/app/invoicing", element: <InvoicingPage /> },
       { path: "/app/purchase-orders-products", element: <PurchaseOrdersProductsPage /> },
       { path: "/app/purchase-orders-assets", element: <PurchaseOrdersAssetsPage /> },
       { path: "/app/additional-expenses", element: <AdditionalExpensesPage /> },
